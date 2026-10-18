@@ -11,8 +11,8 @@
 <meta name="theme-color" content="#0F1015" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Finanzas de Maik y Consu: gastos, análisis y gastos comunes.">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png">
 <title>Finanzas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -199,6 +199,37 @@ nav.tab .add{width:56px;height:56px;border-radius:18px;background:var(--accent-b
 #toast span{white-space:nowrap}
 #toast button{border:0;background:transparent;color:var(--bg);font-weight:800;text-decoration:underline;min-height:36px}
 @media (max-height:700px){ .key{height:44px} .amount{font-size:44px} .cat{min-height:60px} }
+
+/* v0.2: escaneo, pendientes, patrimonio */
+.scan{position:relative;display:flex;align-items:center;gap:12px;background:var(--accent-soft);border-radius:16px;padding:12px 14px;min-height:56px;cursor:pointer}
+.scan input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:16px}
+.scan .ic{width:40px;height:40px;border-radius:12px;background:var(--accent-btn);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.scan b{display:block;font-size:14px}
+.scan small{display:block;font-size:12px;color:var(--muted)}
+.scanning{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;color:var(--muted);font-size:14px}
+.spin{width:40px;height:40px;border-radius:99px;border:4px solid var(--accent-soft);border-top-color:var(--accent-btn);animation:spin 0.9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+.pend{background:var(--card);border-radius:20px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.pend .top{display:flex;align-items:center;gap:12px}
+.pend .acts{display:flex;gap:8px}
+.pend .acts button{flex:1;min-height:40px;border-radius:12px;border:0;font-weight:700;font-size:13px;background:var(--chip);color:var(--ink)}
+.pend .acts .ok{background:var(--accent-btn);color:#fff}
+.pend .acts .ok:disabled{opacity:.4}
+.badge{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;background:var(--warn-soft);color:var(--warn)}
+.pendbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--warn-soft);color:var(--warn-strong);border-radius:20px;padding:14px 16px;border:0;width:100%;text-align:left}
+.pendbar b{font-size:15px}
+.pendbar span{font-size:13px;font-weight:700;color:var(--warn)}
+.bk{display:flex;flex-direction:column}
+.bk .r{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.bk .r:last-child{border-bottom:0}
+.bk .r .k{font-size:14px;font-weight:600}
+.bk .r .k small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.bk .r .v{font-size:15px;font-weight:700;white-space:nowrap}
+.minirow{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card);border-radius:20px;padding:14px 16px;border:0;width:100%;text-align:left}
+.minirow .v{font-size:20px;font-weight:800}
+.help{font-size:12px;color:var(--muted);line-height:1.45;margin:0}
+.pill.wrap{flex-wrap:wrap;border-radius:16px}
 </style>
 </head>
 <body>
@@ -281,7 +312,16 @@ const ICON = {
   chevL: '<path d="M15 5l-7 7 7 7"/>',
   chevR: '<path d="M9 5l7 7-7 7"/>',
   swap: '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
-  back: '<path d="M15 5l-7 7 7 7"/>'
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  check: '<path d="M5 12l5 5 9-10"/>',
+  chart: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
+  layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  btc: '<circle cx="12" cy="12" r="9"/><path d="M10 7.5v9M10 8h3.2a2 2 0 0 1 0 4H10m0 0h3.6a2 2 0 0 1 0 4H10"/>',
+  umbrella: '<path d="M3 12a9 9 0 0 1 18 0z"/><path d="M12 12v6a2 2 0 0 1-4 0"/>',
+  coin: '<circle cx="12" cy="12" r="9"/><path d="M15 9a3.5 3.5 0 1 0 0 6M8 11h5M8 13h5"/>',
+  piggy: '<path d="M4 12a7 6 0 0 1 12.5-3.5H19v3l1.5 1v2.5H19l-1.5 2.5V19h-3v-1.5h-4V19h-3v-2.2A6 6 0 0 1 4 12z"/><circle cx="15" cy="11.5" r=".9"/>'
 };
 const icon = (n, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n] || ICON.dots}</svg>`;
 
@@ -303,6 +343,7 @@ const CATS = [
   { id: 'hogar', n: 'Hogar', e: 'necesario', i: 'sofa' },
   { id: 'trabajo', n: 'Trabajo', e: 'necesario', i: 'briefcase' },
   { id: 'impuestos', n: 'Impuestos y cuotas', e: 'necesario', i: 'receipt' },
+  { id: 'inversion', n: 'Inversión', e: '', i: 'trend' },
   { id: 'viajes', n: 'Viajes', e: 'prescindible', i: 'plane' },
   { id: 'regalos', n: 'Regalos', e: 'prescindible', i: 'gift' },
   { id: 'otros', n: 'Otros', e: '', i: 'dots' }
@@ -314,6 +355,9 @@ const CATS_ING = [
 ];
 const CAT_BY = Object.fromEntries([...CATS, ...CATS_ING].map(c => [c.id, c]));
 const ETQ = { necesario: 'Necesario', prescindible: 'Prescindible', capricho: 'Capricho' };
+const TIPOS_ACTIVO = { accion: 'Acción', etf: 'ETF o fondo', cripto: 'Cripto', pension: 'Plan de pensiones', otro: 'Otro' };
+const ICON_ACTIVO = { accion: 'trend', etf: 'layers', cripto: 'btc', pension: 'umbrella', otro: 'coin', ahorro: 'piggy' };
+const COLOR_ACTIVO = { accion: 'var(--accent-btn)', etf: '#2F8FD8', cripto: 'var(--warn-bar)', pension: 'var(--good)', otro: 'var(--neutral-bar)' };
 const PERFILES = ['maik', 'consu'];
 
 /* ================= Config ================= */
@@ -339,19 +383,22 @@ const nombre = p => cfg.nombres[p] || p;
 const otro = p => (p === 'maik' ? 'consu' : 'maik');
 
 /* ================= Datos ================= */
-function applyOp(arr, op) {
-  if (op.op === 'upsert') {
-    const i = arr.findIndex(m => m.id === op.mov.id);
-    if (i >= 0) arr[i] = op.mov; else arr.push(op.mov);
-  } else if (op.op === 'delete') {
+function applyOp(st, op) {
+  const pos = op.op === 'upsertPos' || op.op === 'deletePos';
+  const arr = pos ? st.cartera : st.movs;
+  if (op.op === 'upsert' || op.op === 'upsertPos') {
+    const item = op.mov || op.pos;
+    const i = arr.findIndex(m => m.id === item.id);
+    if (i >= 0) arr[i] = item; else arr.push(item);
+  } else if (op.op === 'delete' || op.op === 'deletePos') {
     const i = arr.findIndex(m => m.id === op.id);
     if (i >= 0) arr.splice(i, 1);
   }
 }
 
-async function api(method, body, extra) {
+async function api(method, body, extra, timeoutMs) {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 20000);
+  const t = setTimeout(() => ctrl.abort(), timeoutMs || 20000);
   try {
     let res;
     if (method === 'GET') {
@@ -375,22 +422,31 @@ async function api(method, body, extra) {
 }
 
 const Store = {
-  movs: [], queue: LS.get('fin_queue', []), status: 'demo', error: '', ver: 0, flushing: false,
+  movs: [], cartera: [], queue: LS.get('fin_queue', []), status: 'demo', error: '', ver: 0,
+  flushing: false, needReload: false, ia: false, pricesAt: null,
   isDemo() { return !cfg.api; },
   touch() { this.ver++; memo.clear(); },
+  saveLocal() {
+    if (this.isDemo()) { LS.set('fin_demo', this.movs); LS.set('fin_demo_cartera', this.cartera); }
+    else { LS.set('fin_cache', this.movs); LS.set('fin_cache_cartera', this.cartera); }
+  },
   async load() {
     if (this.isDemo()) {
       this.movs = LS.get('fin_demo', null) || seedDemo();
-      LS.set('fin_demo', this.movs);
-      this.status = 'demo'; this.touch(); return;
+      this.cartera = LS.get('fin_demo_cartera', null) || seedCartera();
+      this.saveLocal();
+      this.status = 'demo'; this.pricesAt = null; this.touch(); return;
     }
-    this.movs = LS.get('fin_cache', []); this.touch();
+    this.movs = LS.get('fin_cache', []); this.cartera = LS.get('fin_cache_cartera', []); this.touch();
     try {
       await this.flush();
       const r = await api('GET');
       this.movs = r.movs || [];
-      this.queue.forEach(op => applyOp(this.movs, op));
-      LS.set('fin_cache', this.movs);
+      this.cartera = r.cartera || [];
+      this.ia = !!r.ia;
+      this.queue.forEach(op => applyOp(this, op));
+      this.saveLocal();
+      this.pricesAt = new Date(); this.needReload = false;
       this.status = this.queue.length ? 'pend' : 'ok'; this.error = '';
     } catch (e) {
       this.status = 'err'; this.error = e.message;
@@ -398,22 +454,27 @@ const Store = {
     this.touch();
   },
   commit(op) {
-    applyOp(this.movs, op); this.touch();
-    if (this.isDemo()) { LS.set('fin_demo', this.movs); return; }
-    LS.set('fin_cache', this.movs);
+    applyOp(this, op); this.touch(); this.saveLocal();
+    if (this.isDemo()) return;
     this.queue.push(op); LS.set('fin_queue', this.queue);
     this.status = 'pend';
-    this.flush().then(() => render());
+    this.flush().then(async () => {
+      if (this.needReload && !this.flushing && !this.queue.length) await this.load();
+      render();
+    });
   },
   async flush() {
     if (this.isDemo() || !this.queue.length || this.flushing) return;
     this.flushing = true;
-    const batch = this.queue.slice();
     try {
-      await api('POST', { ops: batch });
-      this.queue = this.queue.slice(batch.length);
-      LS.set('fin_queue', this.queue);
-      this.status = this.queue.length ? 'pend' : 'ok'; this.error = '';
+      while (this.queue.length) {
+        const batch = this.queue.slice();
+        await api('POST', { ops: batch });
+        if (batch.some(o => o.op === 'upsertPos')) this.needReload = true;
+        this.queue = this.queue.slice(batch.length);
+        LS.set('fin_queue', this.queue);
+      }
+      this.status = 'ok'; this.error = '';
     } catch (e) {
       this.status = 'pend'; this.error = e.message;
     } finally { this.flushing = false; }
@@ -422,6 +483,7 @@ const Store = {
 
 /* ================= Cálculos ================= */
 const memo = new Map();
+const isPend = m => m.estado === 'pendiente';
 function shareOf(m, p) {
   if (m.tipo !== 'gasto') return 0;
   if (!m.comun) return m.perfil === p ? m.importe : 0;
@@ -429,16 +491,18 @@ function shareOf(m, p) {
   return m.perfil === p ? m.importe * r : m.importe * (1 - r);
 }
 const ingresoOf = (m, p) => (m.tipo === 'ingreso' && m.perfil === p ? m.importe : 0);
-const relevant = (m, p) => m.perfil === p || m.comun || m.tipo === 'liquidacion';
+const relevant = (m, p) => !isPend(m) && (m.perfil === p || m.comun || m.tipo === 'liquidacion');
+const emptyStats = () => ({ ing: 0, gas: 0, inv: 0, byCat: {}, byCatP: {}, byEt: { necesario: 0, prescindible: 0, capricho: 0, '': 0 }, n: 0 });
 
 function monthStats(p, ym) {
   const k = p + '|' + ym;
   if (memo.has(k)) return memo.get(k);
-  const s = { ing: 0, gas: 0, byCat: {}, byCatP: {}, byEt: { necesario: 0, prescindible: 0, capricho: 0, '': 0 }, n: 0 };
+  const s = emptyStats();
   for (const m of Store.movs) {
-    if (!m.fecha || m.fecha.slice(0, 7) !== ym) continue;
+    if (!m.fecha || m.fecha.slice(0, 7) !== ym || isPend(m)) continue;
     const g = shareOf(m, p);
-    if (g) {
+    if (g && m.categoria === 'inversion') { s.inv += g; s.n++; }
+    else if (g) {
       s.gas += g; s.n++;
       s.byCat[m.categoria] = (s.byCat[m.categoria] || 0) + g;
       const e = m.etiqueta || '';
@@ -452,14 +516,29 @@ function monthStats(p, ym) {
   return s;
 }
 function mergeStats(list) {
-  const s = { ing: 0, gas: 0, byCat: {}, byCatP: {}, byEt: { necesario: 0, prescindible: 0, capricho: 0, '': 0 }, n: 0 };
+  const s = emptyStats();
   list.forEach(t => {
-    s.ing += t.ing; s.gas += t.gas; s.n += t.n;
+    s.ing += t.ing; s.gas += t.gas; s.inv += t.inv; s.n += t.n;
     for (const k in t.byCat) s.byCat[k] = (s.byCat[k] || 0) + t.byCat[k];
     for (const k in t.byCatP) s.byCatP[k] = (s.byCatP[k] || 0) + t.byCatP[k];
     for (const k in t.byEt) s.byEt[k] = (s.byEt[k] || 0) + t.byEt[k];
   });
   return s;
+}
+const precioPos = x => (x.precio_manual != null && x.precio_manual !== '' ? Number(x.precio_manual) : x.precio_eur);
+function valorPos(x) { const pr = precioPos(x); return pr == null ? (Number(x.coste) || 0) : (Number(x.unidades) || 0) * pr; }
+function patrimonio(p) {
+  const pos = Store.cartera.filter(x => x.perfil === p);
+  const huchas = pos.filter(x => x.tipo === 'ahorro'), invs = pos.filter(x => x.tipo !== 'ahorro');
+  const hucha = sum(huchas.map(valorPos)), cartera = sum(invs.map(valorPos));
+  const cur = curYM(), f = firstMonth(p);
+  let anteriores = 0;
+  if (f) for (let m = f; m < cur; m = addMonths(m, 1)) { const s = monthStats(p, m); anteriores += s.ing - s.gas - s.inv; }
+  const s = monthStats(p, cur), mes = s.ing - s.gas - s.inv;
+  const conCoste = invs.filter(x => Number(x.coste) > 0);
+  const coste = sum(conCoste.map(x => Number(x.coste))), valorConCoste = sum(conCoste.map(valorPos));
+  return { hucha, anteriores, mes, cartera, total: hucha + anteriores + mes + cartera, huchas, invs, desde: f,
+    invMes: s.inv, coste, gain: conCoste.length ? valorConCoste - coste : null, sinPrecio: invs.filter(x => precioPos(x) == null).length };
 }
 function firstMonth(p) {
   let f = null;
@@ -486,6 +565,7 @@ function hourly(p, ym) {
 function owedToMaik() {
   let o = 0;
   for (const m of Store.movs) {
+    if (isPend(m)) continue;
     if (m.tipo === 'gasto' && m.comun) {
       const r = (m.reparto == null ? 50 : m.reparto) / 100, other = m.importe * (1 - r);
       o += m.perfil === 'maik' ? other : -other;
@@ -563,7 +643,7 @@ function movRow(m, p) {
 
 function vInicio() {
   const p = cfg.perfil, ym = curYM(), s = monthStats(p, ym);
-  const bal = s.ing - s.gas, sr = savingsRate(p, ym);
+  const bal = s.ing - s.gas - s.inv, sr = savingsRate(p, ym);
   const rateTxt = sr.rate == null ? '—' : Math.round(sr.rate * 100) + ' %';
   const rateW = sr.rate == null ? 0 : Math.max(0, Math.min(100, sr.rate * 100));
   const presc = s.byEt.prescindible + s.byEt.capricho;
@@ -616,9 +696,11 @@ function vInicio() {
         <div class="kpi"><div class="small muted">Ahorro</div><div class="v num acc">${rateTxt}</div></div>
       </div>
       <div class="bar" role="img" aria-label="Tasa de ahorro ${rateTxt}"><div style="width:${rateW}%;background:var(--accent-btn)"></div></div>
-      <div class="small muted">Tasa de ahorro: ${sr.label}${s.ing === 0 && !cfg.variable[p] ? ' · aún no ha entrado ningún ingreso' : ''}</div>
+      <div class="small muted">Tasa de ahorro: ${sr.label}${s.ing === 0 && !cfg.variable[p] ? ' · aún no ha entrado ningún ingreso' : ''}${s.inv ? ` · invertido ${eur(s.inv, 0)} (cuenta como ahorro)` : ''}</div>
     </section>
+    ${pendBar(p)}
     ${prescCard}
+    <button class="minirow" data-act="go" data-arg="patrimonio"><div><div class="small muted">Patrimonio total</div><div class="v num">${eur(patrimonio(p).total, 0)}</div></div><span class="link">Ver ${icon('chevR', 16)}</span></button>
     <div class="sec"><h2>Últimos movimientos</h2><button class="link" data-act="go" data-arg="movs">Ver todo</button></div>
     ${recent.length ? `<div class="list">${recent.map(m => movRow(m, p)).join('')}</div>` : `<div class="list"><div class="empty">Aún no hay movimientos. Pulsa + para añadir el primero.</div></div>`}
   </div>`;
@@ -669,6 +751,7 @@ function vAnalisis() {
         <div class="kpi"><div class="small muted">Sale</div><div class="v num">${eur(s.gas, 0)}</div></div>
         <div class="kpi"><div class="small muted">Ahorro</div><div class="v num acc">${rate == null ? '—' : Math.round(rate * 100) + ' %'}</div></div>
       </div>
+      ${s.inv ? `<div class="small muted">Además has invertido ${eur(s.inv, 0)}; cuenta como ahorro, no como gasto.</div>` : ''}
     </section>
     <section class="card">
       <h2>Por categoría</h2>
@@ -696,7 +779,7 @@ function vAnalisis() {
 function vComun() {
   const o = owedToMaik();
   const debtor = o > 0 ? 'consu' : 'maik', creditor = otro(debtor), amt = Math.abs(o);
-  const items = Store.movs.filter(m => m.fecha && m.fecha.slice(0, 7) === UI.month && ((m.tipo === 'gasto' && m.comun) || m.tipo === 'liquidacion')).sort(sortDesc);
+  const items = Store.movs.filter(m => m.fecha && m.fecha.slice(0, 7) === UI.month && !isPend(m) && ((m.tipo === 'gasto' && m.comun) || m.tipo === 'liquidacion')).sort(sortDesc);
   const total = sum(items.filter(m => m.tipo === 'gasto').map(m => m.importe));
   const reps = [...new Set(items.filter(m => m.tipo === 'gasto').map(m => m.reparto))];
   const ini = p => esc(nombre(p).slice(0, 1).toUpperCase());
@@ -765,6 +848,7 @@ function vAjustes() {
       <div class="field"><label for="tok">Token</label><input class="input" id="tok" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cfg.token)}"></div>
       <button class="btn" data-act="connect">Guardar y probar conexión</button>
       ${UI.testMsg ? `<div class="status">${esc(UI.testMsg)}</div>` : ''}
+      ${cfg.api && !UI.testMsg ? `<div class="status">Lectura de tickets: ${Store.ia ? 'activada' : 'sin configurar (falta la clave de IA en Apps Script)'}</div>` : ''}
       ${cfg.api ? `<button class="btn sec2" data-act="disconnect">Desconectar y volver al modo demo</button>` : ''}
     </section>
     <section class="card">
@@ -776,17 +860,119 @@ function vAjustes() {
       <h2>Instalar en el iPhone</h2>
       <p class="note">Abre esta página en <b>Safari</b> → botón <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>. Se abrirá a pantalla completa, como una app.</p>
     </section>
-    <p class="note" style="text-align:center">Finanzas · v0.1</p>
+    <p class="note" style="text-align:center">Finanzas · v0.2</p>
   </div>`;
 }
 
-const VIEWS = { inicio: vInicio, analisis: vAnalisis, comun: vComun, movs: vMovs, ajustes: vAjustes };
+/* ---------- Pendientes ---------- */
+const pendientesDe = p => Store.movs.filter(m => isPend(m) && m.perfil === p).sort(sortDesc);
+function pendBar(p) {
+  const n = pendientesDe(p).length;
+  if (!n) return '';
+  return `<button class="pendbar" data-act="go" data-arg="pendientes"><div><b>${n} movimiento${n > 1 ? 's' : ''} por revisar</b><div class="small">Leídos de tus fotos. No cuentan hasta que los aceptes.</div></div><span>Revisar ${icon('chevR', 16)}</span></button>`;
+}
+function dayDiff(a, b) { return Math.round((parseDate(a) - parseDate(b)) / 864e5); }
+function posibleDuplicado(m) {
+  return Store.movs.some(x => x.id !== m.id && !isPend(x) && x.tipo === m.tipo && Math.abs(x.importe - m.importe) < 0.01 &&
+    Math.abs(dayDiff(x.fecha, m.fecha)) <= 2 && (x.perfil === m.perfil || x.comun));
+}
+function vPendientes() {
+  const p = cfg.perfil, items = pendientesDe(p);
+  const listos = items.filter(m => m.categoria);
+  return `<header class="top"><div style="display:flex;align-items:center;gap:12px"><button class="icon-btn" data-act="go" data-arg="inicio" aria-label="Volver">${icon('back', 20)}</button><h1>Por revisar</h1></div><div class="top-r">${syncBadge()}</div></header>
+  <div class="stack" style="margin-top:12px">
+    <p class="note">Revisa importe y categoría. Toca uno para cambiar la etiqueta, marcarlo como común o añadir un comentario.</p>
+    ${items.length ? items.map(m => {
+      const cat = CAT_BY[m.categoria];
+      const dup = posibleDuplicado(m);
+      return `<div class="pend">
+        <button class="row" style="border:0;padding:0" data-act="edit" data-arg="${esc(m.id)}">
+          <div class="tile ${m.tipo === 'ingreso' ? 't-good' : 't-warn'}">${icon(cat ? cat.i : 'dots', 20)}</div>
+          <div class="mid"><div class="tt">${esc(m.nota || (cat ? cat.n : 'Movimiento'))}</div>
+            <div class="sub">${cat ? esc(cat.n) : '<b>Sin categoría</b>'}${m.etiqueta ? ' · ' + ETQ[m.etiqueta] : ''} · ${relDate(m.fecha)}</div></div>
+          <div class="rt"><div class="am num ${m.tipo === 'ingreso' ? 'good' : ''}">${m.tipo === 'ingreso' ? '+' : '−'}${eur(m.importe)}</div>${dup ? '<span class="badge">¿Repetido?</span>' : ''}</div>
+        </button>
+        <div class="acts">
+          <button data-act="discard" data-arg="${esc(m.id)}">Descartar</button>
+          <button class="ok" data-act="accept" data-arg="${esc(m.id)}" ${m.categoria ? '' : 'disabled'}>${icon('check', 16)} Aceptar</button>
+        </div>
+      </div>`;
+    }).join('') : '<div class="list"><div class="empty">No hay nada pendiente. Usa + y "Escanear" para leer un ticket o una captura del banco.</div></div>'}
+    ${listos.length > 1 ? `<button class="btn" data-act="acceptall">Aceptar los ${listos.length} que tienen categoría</button>` : ''}
+  </div>`;
+}
+
+/* ---------- Patrimonio ---------- */
+function fmtUnits(u) { u = Number(u) || 0; return Number.isInteger(u) ? num(u, 0) : num(u, 6).replace(/(,\d*?)0+$/, '$1').replace(/,$/, ''); }
+function posRow(x) {
+  const pr = precioPos(x), val = valorPos(x);
+  const gain = x.tipo !== 'ahorro' && Number(x.coste) > 0 && pr != null ? val - Number(x.coste) : null;
+  const sub = x.tipo === 'ahorro'
+    ? esc(x.plataforma || 'Ahorro')
+    : `${fmtUnits(x.unidades)} × ${pr == null ? 'sin precio' : eur(pr)}${x.plataforma ? ' · ' + esc(x.plataforma) : ''}`;
+  return `<button class="row" data-act="editpos" data-arg="${esc(x.id)}">
+    <div class="tile ${x.tipo === 'ahorro' ? 't-good' : 't-accent'}">${icon(ICON_ACTIVO[x.tipo] || 'coin', 20)}</div>
+    <div class="mid"><div class="tt">${esc(x.nombre || x.ticker || 'Sin nombre')}</div><div class="sub">${sub}</div></div>
+    <div class="rt"><div class="am num">${eur(val, 0)}</div>${gain != null ? `<div class="sub ${gain >= 0 ? 'good' : 'bad'}" style="font-weight:700">${eurS(gain, 0)} · ${pctS(gain / Number(x.coste))}</div>` : (pr == null && x.tipo !== 'ahorro' ? '<div class="sub"><b>sin precio</b></div>' : '')}</div>
+  </button>`;
+}
+function vPatrimonio() {
+  const p = cfg.perfil, P = patrimonio(p);
+  const parts = [
+    ['Ahorro previo', P.hucha, 'var(--good)'],
+    ['Meses anteriores', P.anteriores, '#2F8FD8'],
+    ['Este mes', P.mes, 'var(--warn-bar)'],
+    ['Inversiones', P.cartera, 'var(--accent-btn)']
+  ];
+  const pos = parts.filter(x => x[1] > 0), tot = sum(pos.map(x => x[1])) || 1;
+  const byTipo = {};
+  P.invs.forEach(x => { byTipo[x.tipo] = (byTipo[x.tipo] || 0) + valorPos(x); });
+  const tipos = Object.entries(byTipo).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
+  const totInv = sum(tipos.map(x => x[1])) || 1;
+  const ago = Store.pricesAt ? Math.round((Date.now() - Store.pricesAt) / 60000) : null;
+  const desde = P.desde ? monthLabel(P.desde) : null;
+  return `${header()}
+  <div class="stack" style="margin-top:12px">
+    <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-.6px">Patrimonio</h1>
+    ${demoBanner()}${errBanner()}
+    <section class="card" aria-label="Posición global">
+      <div class="label">Posición global de ${esc(nombre(p))}</div>
+      <div class="big num ${P.total < 0 ? 'bad' : ''}">${eur(P.total, 0)}</div>
+      ${pos.length ? `<div class="stackbar" role="img" aria-label="Reparto del patrimonio">${pos.map(x => `<div style="width:${x[1] / tot * 100}%;background:${x[2]}"></div>`).join('')}</div>` : ''}
+      <div class="bk">
+        <div class="r"><div class="k"><i class="sw" style="background:var(--good)"></i>Ahorro previo<small>Huchas y cuentas que ya tenías</small></div><div class="v num">${eur(P.hucha, 0)}</div></div>
+        <div class="r"><div class="k"><i class="sw" style="background:#2F8FD8"></i>Ahorrado meses anteriores<small>${desde ? 'Desde ' + esc(desde) + ', ingresos − gastos − inversión' : 'Aún no hay meses cerrados'}</small></div><div class="v num ${P.anteriores < 0 ? 'bad' : ''}">${eurS(P.anteriores, 0)}</div></div>
+        <div class="r"><div class="k"><i class="sw" style="background:var(--warn-bar)"></i>Ahorrado este mes<small>Se suma a "meses anteriores" al empezar el mes que viene</small></div><div class="v num ${P.mes < 0 ? 'bad' : ''}">${eurS(P.mes, 0)}</div></div>
+        <div class="r"><div class="k"><i class="sw" style="background:var(--accent-btn)"></i>Inversiones<small>Valor de mercado actual</small></div><div class="v num">${eur(P.cartera, 0)}</div></div>
+      </div>
+    </section>
+
+    <div class="sec"><h2>Inversiones</h2><button class="link" data-act="addpos" data-arg="accion">+ Añadir</button></div>
+    ${P.invs.length ? `<section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <h2 class="num">${eur(P.cartera, 0)}</h2>
+        ${P.gain != null ? `<div class="small ${P.gain >= 0 ? 'good' : 'bad'}" style="font-weight:700">${eurS(P.gain, 0)} (${pctS(P.gain / P.coste)}) sobre ${eur(P.coste, 0)} invertidos</div>` : ''}
+      </div>
+      <div class="stackbar">${tipos.map(([t, v]) => `<div style="width:${v / totInv * 100}%;background:${COLOR_ACTIVO[t]}"></div>`).join('')}</div>
+      <div class="legend">${tipos.map(([t, v]) => `<span><i class="sw" style="background:${COLOR_ACTIVO[t]}"></i>${TIPOS_ACTIVO[t]} ${Math.round(v / totInv * 100)} %</span>`).join('')}</div>
+    </section>
+    <div class="list">${P.invs.slice().sort((a, b) => valorPos(b) - valorPos(a)).map(posRow).join('')}</div>
+    <p class="help">${Store.isDemo() ? 'Precios de ejemplo.' : `Precios de Google Finance (pueden ir hasta 20 min por detrás)${ago != null ? `, leídos hace ${ago < 1 ? 'menos de 1 min' : ago + ' min'}` : ''}. Se refrescan cada vez que abres la app.`}${P.sinPrecio ? ` ${P.sinPrecio} sin precio: revisa el ticker o pon un precio manual.` : ''}</p>`
+    : `<div class="list"><div class="empty">Añade tus acciones, ETF, cripto o plan de pensiones para ver su valor actualizado.</div></div>`}
+
+    <div class="sec"><h2>Ahorro previo</h2><button class="link" data-act="addpos" data-arg="ahorro">+ Añadir</button></div>
+    ${P.huchas.length ? `<div class="list">${P.huchas.map(posRow).join('')}</div>` : `<div class="list"><div class="empty">Apunta aquí lo que ya tenías ahorrado (hucha, cuenta de ahorro…). Es el punto de partida.</div></div>`}
+    ${P.invMes ? `<p class="help">Este mes has registrado ${eur(P.invMes, 0)} en la categoría Inversión. Si compraste acciones o participaciones, actualiza aquí sus unidades.</p>` : ''}
+  </div>`;
+}
+
+const VIEWS = { inicio: vInicio, analisis: vAnalisis, comun: vComun, movs: vMovs, ajustes: vAjustes, pendientes: vPendientes, patrimonio: vPatrimonio };
 function renderNav() {
   const it = (v, ic, l) => `<button class="${UI.view === v ? 'on' : ''}" data-act="go" data-arg="${v}" ${UI.view === v ? 'aria-current="page"' : ''}>${icon(ic, 24)}${l}</button>`;
   document.getElementById('nav').innerHTML =
     it('inicio', 'home', 'Inicio') + it('analisis', 'pie', 'Análisis') +
     `<button class="add" data-act="add" aria-label="Añadir movimiento">${icon('plus', 26)}</button>` +
-    it('comun', 'users', 'Común') + it('movs', 'list', 'Movimientos');
+    it('comun', 'users', 'Común') + it('patrimonio', 'chart', 'Patrimonio');
 }
 function render() {
   document.getElementById('app').innerHTML = (VIEWS[UI.view] || vInicio)();
@@ -804,7 +990,7 @@ function usageOrder(p, tipo) {
 function openSheet(m) {
   if (m) {
     F = { id: m.id, tipo: m.tipo, amt: String(m.importe).replace('.', ','), categoria: m.categoria, etiqueta: m.etiqueta || '', comun: !!m.comun,
-      reparto: m.reparto == null ? 50 : m.reparto, perfil: m.perfil, fecha: m.fecha, nota: m.nota || '', creado: m.creado, editing: true, etTouched: true, comunTouched: true, orig: { ...m } };
+      reparto: m.reparto == null ? 50 : m.reparto, perfil: m.perfil, fecha: m.fecha, nota: m.nota || '', creado: m.creado, estado: m.estado || '', editing: true, etTouched: m.estado === 'pendiente' ? !!m.etiqueta : true, comunTouched: m.estado !== 'pendiente', orig: { ...m } };
   } else {
     F = { id: null, tipo: 'gasto', amt: '0', categoria: null, etiqueta: '', comun: false, reparto: 50, perfil: cfg.perfil, fecha: todayStr(), nota: '', editing: false, etTouched: false, comunTouched: false };
     F.order = usageOrder(cfg.perfil, 'gasto');
@@ -814,7 +1000,7 @@ function openSheet(m) {
   document.body.style.overflow = 'hidden';
 }
 function closeSheet() {
-  F = null;
+  F = null; PF = null;
   document.getElementById('sheet-root').innerHTML = '';
   document.body.style.overflow = '';
 }
@@ -835,7 +1021,7 @@ function renderSheet() {
   const root = document.getElementById('sheet-root');
   const prevScroll = root.querySelector('.sh-scroll');
   const st = prevScroll ? prevScroll.scrollTop : 0;
-  const g = F.tipo === 'gasto';
+  const g = F.tipo === 'gasto', inv = F.categoria === 'inversion';
   const fechaTxt = F.fecha === todayStr() ? 'Hoy' : relDate(F.fecha);
   let body;
   if (F.tipo === 'liquidacion') {
@@ -843,9 +1029,10 @@ function renderSheet() {
       <p class="note">Las liquidaciones se crean desde la pestaña Común. Si fue un error, puedes eliminarla.</p>`;
   } else {
     body = `
+      ${!F.editing ? `<label class="scan"><input type="file" id="scanfile" accept="image/*" aria-label="Escanear ticket o captura del banco"><span class="ic">${icon('camera', 22)}</span><span><b>Escanear ticket o captura del banco</b><small>Se leen solos y quedan pendientes de revisar</small></span></label>` : ''}
       <div class="cats" role="group" aria-label="Categoría">${F.order.map(c =>
         `<button class="cat ${F.categoria === c.id ? 'on' : ''}" data-act="cat" data-arg="${c.id}" aria-pressed="${F.categoria === c.id}">${icon(c.i, 22)}<span>${esc(c.n)}</span></button>`).join('')}</div>
-      ${g ? `<div class="etq" role="group" aria-label="Etiqueta">${Object.entries(ETQ).map(([k, l]) =>
+      ${g && !inv ? `<div class="etq" role="group" aria-label="Etiqueta">${Object.entries(ETQ).map(([k, l]) =>
         `<button class="${F.etiqueta === k ? 'on' : ''} ${k !== 'necesario' ? 'w' : ''}" data-act="etq" data-arg="${k}" aria-pressed="${F.etiqueta === k}">${l}</button>`).join('')}</div>
       <div class="box">
         <div class="line"><label for="comun">Gasto común con ${esc(nombre(otro(F.perfil)))}</label><input id="comun" type="checkbox" data-act="comun" ${F.comun ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent-btn)"></div>
@@ -861,13 +1048,13 @@ function renderSheet() {
       <label class="datebtn">${esc(fechaTxt)}<input type="date" id="fecha" value="${F.fecha}" aria-label="Fecha" max="2099-12-31"></label>
     </div>
     <div class="amount ${amtValue() === 0 ? 'zero' : ''}" aria-live="polite">${amtText()}</div>
-    <div class="amt-sub">${esc(nombre(F.perfil))}${F.editing ? ' · editando' : ''}</div>
+    <div class="amt-sub">${esc(nombre(F.perfil))}${F.estado === 'pendiente' ? ' · por revisar' : F.editing ? ' · editando' : ''}</div>
     <div class="sh-scroll">${body}
-      ${F.editing ? `<button class="btn danger" data-act="del">Eliminar movimiento</button>` : ''}
+      ${F.editing ? `<button class="btn danger" data-act="del">${F.estado === 'pendiente' ? 'Descartar' : 'Eliminar movimiento'}</button>` : ''}
     </div>
     ${F.tipo === 'liquidacion' ? '' : `<div class="keypad" role="group" aria-label="Teclado numérico">${['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'].map(k =>
       `<button class="key" data-act="key" data-arg="${k}" ${k === '⌫' ? 'aria-label="Borrar"' : ''}>${k}</button>`).join('')}</div>`}
-    ${F.tipo === 'liquidacion' ? '' : `<button class="save" data-act="save" ${canSave() ? '' : 'disabled'}>${F.editing ? 'Guardar cambios' : 'Guardar'}</button>`}
+    ${F.tipo === 'liquidacion' ? '' : `<button class="save" data-act="save" ${canSave() ? '' : 'disabled'}>${F.estado === 'pendiente' ? 'Aceptar' : F.editing ? 'Guardar cambios' : 'Guardar'}</button>`}
   </div>`;
   const sc = root.querySelector('.sh-scroll'); if (sc) sc.scrollTop = st;
 }
@@ -892,16 +1079,153 @@ function saveSheet() {
   const mov = {
     id: F.id || uid(), fecha: F.fecha, perfil: F.perfil, tipo: F.tipo,
     importe: Math.round(amtValue() * 100) / 100, categoria: F.categoria,
-    etiqueta: g ? F.etiqueta : '', comun: g && F.comun,
+    etiqueta: g && F.categoria !== 'inversion' ? F.etiqueta : '', comun: g && F.comun && F.categoria !== 'inversion',
     reparto: g && F.comun ? Math.max(0, Math.min(100, Number(F.reparto) || 0)) : 50,
-    nota: (F.nota || '').trim(), creado: F.creado || new Date().toISOString()
+    nota: (F.nota || '').trim(), creado: F.creado || new Date().toISOString(), estado: ''
   };
+  const wasPend = F.estado === 'pendiente';
   const orig = F.orig;
   Store.commit({ op: 'upsert', mov });
   closeSheet(); render();
-  toast(orig ? 'Cambios guardados' : `Guardado: ${eur(mov.importe)}`, () => {
+  if (wasPend && UI.view === 'pendientes' && !pendientesDe(cfg.perfil).length) { UI.view = 'inicio'; render(); }
+  toast(wasPend ? 'Aceptado' : orig ? 'Cambios guardados' : `Guardado: ${eur(mov.importe)}`, () => {
     Store.commit(orig ? { op: 'upsert', mov: orig } : { op: 'delete', id: mov.id }); render();
   });
+}
+
+/* ================= Escanear tickets ================= */
+function resizeImage(file, max) {
+  max = max || 2200;
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve({ data: c.toDataURL('image/jpeg', 0.82).split(',')[1], mime: 'image/jpeg' });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo abrir la imagen')); };
+    img.src = url;
+  });
+}
+async function handleScan(file) {
+  if (Store.isDemo()) { toast('Para leer tickets, conecta la Sheet en Ajustes'); return; }
+  const perfil = F.perfil;
+  document.querySelector('.sheet').innerHTML = `<div class="sh-top"><span></span></div><div class="scanning"><div class="spin" aria-hidden="true"></div><div><b style="color:var(--ink);font-size:16px">Leyendo la imagen…</b><br>Suele tardar entre 5 y 15 segundos.</div></div>`;
+  try {
+    const img = await resizeImage(file);
+    const r = await api('POST', { action: 'scan', image: img.data, mime: img.mime }, null, 90000);
+    const items = r.items || [];
+    if (!items.length) { toast('No he encontrado importes en la imagen'); renderSheet(); return; }
+    const hoy = todayStr(), ahora = new Date().toISOString();
+    items.forEach(it => {
+      const ingreso = it.tipo === 'ingreso';
+      let cat = it.categoria || '';
+      if (ingreso && !CATS_ING.some(c => c.id === cat)) cat = 'otros_ing';
+      if (!ingreso && CATS_ING.some(c => c.id === cat)) cat = '';
+      Store.commit({ op: 'upsert', mov: {
+        id: uid(), fecha: it.fecha && it.fecha <= hoy ? it.fecha : hoy, perfil, tipo: ingreso ? 'ingreso' : 'gasto',
+        importe: it.importe, categoria: cat, etiqueta: ingreso || cat === 'inversion' ? '' : (it.etiqueta || (CAT_BY[cat] ? CAT_BY[cat].e : '') || ''),
+        comun: false, reparto: 50, nota: it.comercio || '', creado: ahora, estado: 'pendiente' } });
+    });
+    closeSheet(); UI.view = 'pendientes'; render(); window.scrollTo(0, 0);
+    toast(`${items.length} leído${items.length > 1 ? 's' : ''}. Revísalo${items.length > 1 ? 's' : ''}.`);
+  } catch (e) {
+    toast('No se pudo leer: ' + e.message);
+    if (F) renderSheet();
+  }
+}
+
+/* ================= Hoja de inversión / ahorro ================= */
+let PF = null;
+function parseDec(v) {
+  if (v == null) return null;
+  let t = String(v).trim().replace(/\s|€/g, '');
+  if (!t) return null;
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  const n = Number(t);
+  return isFinite(n) ? n : null;
+}
+const decStr = n => (n == null || n === '' ? '' : String(n).replace('.', ','));
+function openPos(x, tipo) {
+  if (x) {
+    PF = { ...x, unidades: decStr(x.unidades), coste: decStr(x.coste), precio_manual: decStr(x.precio_manual), editing: true, orig: { ...x } };
+    if (x.tipo === 'ahorro') PF.importe = decStr(precioPos(x) != null ? precioPos(x) : x.coste);
+  } else {
+    PF = { id: null, perfil: cfg.perfil, nombre: '', ticker: '', tipo: tipo || 'accion', unidades: '', coste: '', plataforma: '', precio_manual: '', importe: '', editing: false };
+  }
+  renderPos();
+  document.body.style.overflow = 'hidden';
+}
+function readPF() {
+  const map = { 'p-nombre': 'nombre', 'p-ticker': 'ticker', 'p-unid': 'unidades', 'p-coste': 'coste', 'p-plat': 'plataforma', 'p-pman': 'precio_manual', 'p-imp': 'importe' };
+  for (const id in map) { const el = document.getElementById(id); if (el) PF[map[id]] = el.value.trim(); }
+}
+function renderPos() {
+  const a = PF.tipo === 'ahorro';
+  const help = {
+    accion: 'Formato de Google Finance, BOLSA:TICKER. Ej.: NASDAQ:NVDA, NYSE:KO, BME:SAN.',
+    etf: 'Ej.: NYSEARCA:VOO. Muchos ETF europeos no están en Google Finance: deja el ticker vacío y usa el precio manual.',
+    cripto: 'Solo el símbolo: BTC, ETH, SOL…',
+    pension: 'Los planes no cotizan: deja el ticker vacío y pon el valor liquidativo como precio manual.',
+    otro: 'Opcional.'
+  }[PF.tipo] || '';
+  const f = (id, label, val, attrs) => `<div class="field"><label for="${id}">${label}</label><input class="input" id="${id}" value="${esc(val)}" ${attrs || ''}></div>`;
+  const pr = PF.editing ? precioPos(PF.orig) : null;
+  const body = a ? `
+      ${f('p-nombre', 'Nombre', PF.nombre, 'placeholder="Hucha, cuenta de ahorro…" maxlength="60"')}
+      ${f('p-imp', 'Importe (€)', PF.importe, 'inputmode="decimal" placeholder="0,00"')}
+      ${f('p-plat', 'Dónde está (opcional)', PF.plataforma, 'placeholder="Openbank, en casa…" maxlength="40"')}
+      <p class="help">Lo que ya tenías ahorrado antes de usar la app. Actualízalo cuando quieras.</p>`
+    : `
+      <div class="pill wrap" role="group" aria-label="Tipo">${Object.entries(TIPOS_ACTIVO).map(([k, l]) =>
+        `<button class="${PF.tipo === k ? 'on' : ''}" data-act="ptipo" data-arg="${k}">${l}</button>`).join('')}</div>
+      ${f('p-nombre', 'Nombre', PF.nombre, 'placeholder="NVIDIA" maxlength="60"')}
+      ${f('p-ticker', 'Ticker', PF.ticker, 'autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="NASDAQ:NVDA"')}
+      <p class="help" style="margin-top:-6px">${help}</p>
+      <div class="grid2">
+        ${f('p-unid', 'Unidades', PF.unidades, 'inputmode="decimal" placeholder="3"')}
+        ${f('p-coste', 'Total invertido (€)', PF.coste, 'inputmode="decimal" placeholder="Opcional"')}
+      </div>
+      ${f('p-plat', 'Plataforma', PF.plataforma, 'placeholder="Revolut, Trade Republic…" maxlength="40"')}
+      ${f('p-pman', 'Precio manual (€ por unidad, opcional)', PF.precio_manual, 'inputmode="decimal" placeholder="Solo si no hay ticker"')}
+      ${pr != null ? `<p class="help">Precio actual: <b>${eur(pr)}</b> · valor ${eur(valorPos(PF.orig))}</p>` : ''}`;
+  document.getElementById('sheet-root').innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="${a ? 'Ahorro previo' : 'Inversión'}">
+    <div class="sh-top">
+      <button class="icon-btn" data-act="close" aria-label="Cerrar">${icon('x', 20)}</button>
+      <div class="label">${a ? 'Ahorro previo' : PF.editing ? 'Editar inversión' : 'Nueva inversión'}</div>
+      <span style="width:44px"></span>
+    </div>
+    <div class="sh-scroll">${body}
+      ${PF.editing ? `<button class="btn danger" data-act="delpos">Eliminar</button>` : ''}
+    </div>
+    <button class="save" data-act="savepos">Guardar</button>
+  </div>`;
+}
+function savePos() {
+  readPF();
+  let pos;
+  if (PF.tipo === 'ahorro') {
+    const imp = parseDec(PF.importe);
+    if (imp == null) { toast('Pon el importe'); return; }
+    pos = { id: PF.id || uid(), perfil: PF.perfil, nombre: PF.nombre || 'Ahorro', ticker: '', tipo: 'ahorro', unidades: 1, coste: imp, plataforma: PF.plataforma || '', precio_manual: imp, precio_eur: null };
+  } else {
+    const u = parseDec(PF.unidades);
+    if (u == null || u <= 0) { toast('Indica cuántas unidades tienes'); return; }
+    const ticker = (PF.ticker || '').toUpperCase().replace(/\s+/g, '');
+    if (!PF.nombre && !ticker) { toast('Pon un nombre o un ticker'); return; }
+    const keep = PF.orig && PF.orig.ticker === ticker && PF.orig.tipo === PF.tipo ? PF.orig.precio_eur : null;
+    pos = { id: PF.id || uid(), perfil: PF.perfil, nombre: PF.nombre || ticker, ticker, tipo: PF.tipo, unidades: u,
+      coste: parseDec(PF.coste), plataforma: PF.plataforma || '', precio_manual: parseDec(PF.precio_manual), precio_eur: keep };
+  }
+  const orig = PF.orig;
+  Store.commit({ op: 'upsertPos', pos });
+  closeSheet(); render();
+  toast(Store.isDemo() || pos.precio_manual != null || pos.precio_eur != null ? 'Guardado' : 'Guardado. Buscando el precio…', orig
+    ? () => { Store.commit({ op: 'upsertPos', pos: orig }); render(); }
+    : () => { Store.commit({ op: 'deletePos', id: pos.id }); render(); });
 }
 
 /* ================= Toast ================= */
@@ -940,6 +1264,7 @@ const ACT = {
     if (F.tipo === 'gasto') {
       if (!F.etTouched) F.etiqueta = c.e || '';
       if (!F.comunTouched) F.comun = lastComunFor(id, F.perfil);
+      if (id === 'inversion') { F.etiqueta = ''; F.comun = false; }
     }
     renderSheet();
   },
@@ -952,6 +1277,33 @@ const ACT = {
     Store.commit({ op: 'delete', id: F.id });
     closeSheet(); render();
     toast('Movimiento eliminado', () => { Store.commit({ op: 'upsert', mov: orig }); render(); });
+  },
+  accept(id) {
+    const m = Store.movs.find(x => x.id === id); if (!m || !m.categoria) return;
+    Store.commit({ op: 'upsert', mov: { ...m, estado: '' } });
+    if (!pendientesDe(cfg.perfil).length) UI.view = 'inicio';
+    render(); toast('Aceptado', () => { Store.commit({ op: 'upsert', mov: m }); render(); });
+  },
+  discard(id) {
+    const m = Store.movs.find(x => x.id === id); if (!m) return;
+    Store.commit({ op: 'delete', id });
+    render(); toast('Descartado', () => { Store.commit({ op: 'upsert', mov: m }); render(); });
+  },
+  acceptall() {
+    const ms = pendientesDe(cfg.perfil).filter(m => m.categoria);
+    ms.forEach(m => Store.commit({ op: 'upsert', mov: { ...m, estado: '' } }));
+    if (!pendientesDe(cfg.perfil).length) UI.view = 'inicio';
+    render(); toast(`${ms.length} aceptados`, () => { ms.forEach(m => Store.commit({ op: 'upsert', mov: m })); render(); });
+  },
+  addpos(t) { openPos(null, t); },
+  editpos(id) { const x = Store.cartera.find(y => y.id === id); if (x) openPos(x); },
+  ptipo(t) { readPF(); PF.tipo = t; renderPos(); },
+  savepos() { savePos(); },
+  delpos() {
+    const orig = PF.orig;
+    Store.commit({ op: 'deletePos', id: PF.id });
+    closeSheet(); render();
+    toast('Eliminado', () => { Store.commit({ op: 'upsertPos', pos: orig }); render(); });
   },
   liq() { UI.confirmLiq = true; render(); },
   liqno() { UI.confirmLiq = false; render(); },
@@ -971,9 +1323,9 @@ const ACT = {
     try {
       await api('GET', null, '&action=ping');
       saveCfg();
-      if (old.api !== url) { LS.del('fin_cache'); Store.queue = []; LS.set('fin_queue', []); }
+      if (old.api !== url) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); Store.queue = []; LS.set('fin_queue', []); }
       await Store.load();
-      UI.testMsg = `Conectado. ${Store.movs.length} movimientos en la Sheet.`;
+      UI.testMsg = `Conectado. ${Store.movs.length} movimientos en la Sheet. Lectura de tickets: ${Store.ia ? 'activada' : 'sin configurar'}.`;
     } catch (e) {
       cfg.api = old.api; cfg.token = old.token;
       UI.testMsg = 'No se pudo conectar: ' + e.message;
@@ -982,11 +1334,11 @@ const ACT = {
   },
   async disconnect() {
     cfg.api = ''; cfg.token = ''; saveCfg();
-    LS.del('fin_cache'); Store.queue = []; LS.set('fin_queue', []);
+    LS.del('fin_cache'); LS.del('fin_cache_cartera'); Store.queue = []; LS.set('fin_queue', []);
     UI.testMsg = 'Desconectado. Vuelves al modo demo.';
     await Store.load(); render();
   },
-  async resetdemo() { LS.del('fin_demo'); await Store.load(); toast('Datos de ejemplo regenerados'); render(); },
+  async resetdemo() { LS.del('fin_demo'); LS.del('fin_demo_cartera'); await Store.load(); toast('Datos de ejemplo regenerados'); render(); },
   csv() {
     const H = ['fecha', 'perfil', 'tipo', 'importe', 'categoria', 'etiqueta', 'comun', 'reparto', 'nota'];
     const q = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
@@ -1009,6 +1361,7 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const el = e.target;
   if (el.dataset.act === 'comun') { ACT.comun(null, el); return; }
+  if (el.id === 'scanfile' && F && el.files && el.files[0]) { handleScan(el.files[0]); return; }
   if (el.id === 'fecha' && F) { if (/^\d{4}-\d{2}-\d{2}$/.test(el.value)) F.fecha = el.value; renderSheet(); return; }
   if (el.id === 'rep' && F) { F.reparto = Math.max(0, Math.min(100, Number(el.value) || 0)); return; }
   const path = el.dataset.cfg;
@@ -1053,6 +1406,8 @@ function seedDemo() {
     // Maik
     add(ym, 27, 'maik', 'ingreso', 2450, 'nomina', '', 'Nómina');
     add(ym, 3, 'maik', 'gasto', 39.9, 'deporte', 'necesario', 'Gimnasio');
+    add(ym, 5, 'maik', 'gasto', 200, 'inversion', '', 'Aportación MSCI World');
+    add(ym, 6, 'maik', 'gasto', 50, 'inversion', '', 'Compra Bitcoin');
     add(ym, 10, 'maik', 'gasto', 13.99, 'suscripciones', 'prescindible', 'Spotify');
     add(ym, 12, 'maik', 'gasto', 9.99, 'suscripciones', 'prescindible', 'iCloud');
     for (let i = 0; i < 2; i++) add(ym, 5 + i * 11, 'maik', 'gasto', between(35, 60), 'transporte', 'necesario', 'Gasolina');
@@ -1088,6 +1443,18 @@ function seedDemo() {
     else if (m.tipo === 'liquidacion') { m.importe = Math.round(Math.abs(o) * 100) / 100; m.perfil = o > 0 ? 'consu' : 'maik'; o = 0; }
   });
   return sorted.filter(m => m.tipo !== 'liquidacion' || m.importe > 0);
+}
+
+function seedCartera() {
+  const d = new Date().toISOString();
+  return [
+    { id: 'dp1', perfil: 'maik', nombre: 'NVIDIA', ticker: 'NASDAQ:NVDA', tipo: 'accion', unidades: 3, coste: 390, plataforma: 'Revolut', precio_manual: null, precio_eur: 158.4, actualizado: d },
+    { id: 'dp2', perfil: 'maik', nombre: 'MSCI World', ticker: '', tipo: 'etf', unidades: 42, coste: 3900, plataforma: 'Trade Republic', precio_manual: 104.2, precio_eur: null, actualizado: d },
+    { id: 'dp3', perfil: 'maik', nombre: 'Bitcoin', ticker: 'BTC', tipo: 'cripto', unidades: 0.035, coste: 2100, plataforma: 'Coinbase', precio_manual: null, precio_eur: 61850, actualizado: d },
+    { id: 'dp4', perfil: 'maik', nombre: 'Plan de pensiones HNA', ticker: '', tipo: 'pension', unidades: 210, coste: 5600, plataforma: 'HNA', precio_manual: 28.9, precio_eur: null, actualizado: d },
+    { id: 'dp5', perfil: 'maik', nombre: 'Cuenta ahorro', ticker: '', tipo: 'ahorro', unidades: 1, coste: 6000, plataforma: 'Openbank', precio_manual: 6000, precio_eur: null, actualizado: d },
+    { id: 'dp6', perfil: 'consu', nombre: 'Hucha', ticker: '', tipo: 'ahorro', unidades: 1, coste: 2500, plataforma: 'CaixaBank', precio_manual: 2500, precio_eur: null, actualizado: d }
+  ];
 }
 
 /* ================= Arranque ================= */
