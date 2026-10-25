@@ -368,6 +368,7 @@ const CATS = [
 const CATS_ING = [
   { id: 'nomina', n: 'Nómina', i: 'briefcase' },
   { id: 'factura', n: 'Factura', i: 'receipt' },
+  { id: 'alquiler', n: 'Alquiler', i: 'home' },
   { id: 'otros_ing', n: 'Otros ingresos', i: 'plus' }
 ];
 const CAT_BY = Object.fromEntries([...CATS, ...CATS_ING].map(c => [c.id, c]));
@@ -424,10 +425,10 @@ function parseEnlace(txt) {
 
 /* ================= Datos ================= */
 function applyOp(st, op) {
-  const kind = /Pos$/.test(op.op) ? 'cartera' : /Fijo$/.test(op.op) ? 'fijos' : 'movs';
+  const kind = /Pos$/.test(op.op) ? 'cartera' : /Fijo$/.test(op.op) ? 'fijos' : /Inm$/.test(op.op) ? 'inmuebles' : /Con$/.test(op.op) ? 'contratos' : 'movs';
   const arr = st[kind];
   if (/^upsert/.test(op.op)) {
-    const item = op.mov || op.pos || op.fijo;
+    const item = op.mov || op.pos || op.fijo || op.inm || op.con;
     const i = arr.findIndex(m => m.id === item.id);
     if (i >= 0) arr[i] = item; else arr.push(item);
   } else if (/^delete/.test(op.op)) {
@@ -462,30 +463,35 @@ async function api(method, body, extra, timeoutMs) {
 }
 
 const Store = {
-  movs: [], cartera: [], fijos: [], queue: LS.get('fin_queue', []), status: 'demo', error: '', ver: 0,
+  movs: [], cartera: [], fijos: [], inmuebles: [], contratos: [], queue: LS.get('fin_queue', []), status: 'demo', error: '', ver: 0,
   flushing: false, needReload: false, ia: false, pricesAt: null,
   isDemo() { return !cfg.api; },
   touch() { this.ver++; memo.clear(); },
   saveLocal() {
-    if (this.isDemo()) { LS.set('fin_demo', this.movs); LS.set('fin_demo_cartera', this.cartera); LS.set('fin_demo_fijos', this.fijos); }
-    else { LS.set('fin_cache', this.movs); LS.set('fin_cache_cartera', this.cartera); LS.set('fin_cache_fijos', this.fijos); }
+    if (this.isDemo()) { LS.set('fin_demo', this.movs); LS.set('fin_demo_cartera', this.cartera); LS.set('fin_demo_fijos', this.fijos); LS.set('fin_demo_inm', this.inmuebles); LS.set('fin_demo_con', this.contratos); }
+    else { LS.set('fin_cache', this.movs); LS.set('fin_cache_cartera', this.cartera); LS.set('fin_cache_fijos', this.fijos); LS.set('fin_cache_inm', this.inmuebles); LS.set('fin_cache_con', this.contratos); }
   },
   async load(extra) {
     if (this.isDemo()) {
       this.movs = LS.get('fin_demo', null) || seedDemo();
       this.cartera = LS.get('fin_demo_cartera', null) || seedCartera();
       this.fijos = LS.get('fin_demo_fijos', null) || seedFijos();
+      this.inmuebles = LS.get('fin_demo_inm', null) || seedInm();
+      this.contratos = LS.get('fin_demo_con', null) || seedCon();
       this.saveLocal();
       this.status = 'demo'; this.pricesAt = null; this.touch();
-      generarFijos(); return;
+      generarFijos(); generarCobros(); return;
     }
-    this.movs = LS.get('fin_cache', []); this.cartera = LS.get('fin_cache_cartera', []); this.fijos = LS.get('fin_cache_fijos', []); this.touch();
+    this.movs = LS.get('fin_cache', []); this.cartera = LS.get('fin_cache_cartera', []); this.fijos = LS.get('fin_cache_fijos', []);
+    this.inmuebles = LS.get('fin_cache_inm', []); this.contratos = LS.get('fin_cache_con', []); this.touch();
     try {
       await this.flush();
       const r = await api('GET', null, extra, extra ? 90000 : 30000);
       this.movs = r.movs || [];
       this.cartera = r.cartera || [];
       this.fijos = r.fijos || [];
+      this.inmuebles = r.inmuebles || [];
+      this.contratos = r.contratos || [];
       applyServerConfig(r.config);
       this.ia = !!r.ia;
       this.queue.forEach(op => applyOp(this, op));
@@ -496,7 +502,7 @@ const Store = {
       this.status = 'err'; this.error = e.message;
     }
     this.touch();
-    if (this.status !== 'err') generarFijos();
+    if (this.status !== 'err') { generarFijos(); generarCobros(); }
   },
   commit(op) {
     applyOp(this, op); this.touch(); this.saveLocal();
@@ -582,7 +588,8 @@ function patrimonio(p) {
   const s = monthStats(p, cur), mes = s.ing - s.gas - s.inv;
   const conCoste = invs.filter(x => Number(x.coste) > 0);
   const coste = sum(conCoste.map(x => Number(x.coste))), valorConCoste = sum(conCoste.map(valorPos));
-  return { hucha, anteriores, mes, cartera, total: hucha + anteriores + mes + cartera, huchas, invs, desde: f,
+  const inm = sum(inmDe(p).map(netoInm));
+  return { hucha, anteriores, mes, cartera, inm, total: hucha + anteriores + mes + cartera + inm, huchas, invs, desde: f,
     invMes: s.inv, coste, gain: conCoste.length ? valorConCoste - coste : null, sinPrecio: invs.filter(x => precioPos(x) == null).length };
 }
 function firstMonth(p) {
@@ -737,6 +744,7 @@ function movRow(m, p) {
     if (m.comun && p) extra = `<div class="sub">tu parte ${eur(shareOf(m, p))}</div>`;
   }
   if (m.adjunto) sub.push('factura');
+  if (m.inmueble && UI.view !== 'inmueble') { const x = Store.inmuebles.find(i => i.id === m.inmueble); if (x) sub.push(esc(x.nombre)); }
   sub.push(relDate(m.fecha));
   return `<button class="row" data-act="edit" data-arg="${esc(m.id)}">
     <div class="tile ${tile}">${icon(ic, 20)}</div>
@@ -990,7 +998,7 @@ function vAjustes() {
       <h2>Instalar en el móvil</h2>
       <p class="note"><b>iPhone:</b> abre esta página en Safari → <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>.<br><b>Android:</b> abre en Chrome → menú ⋮ → <b>Añadir a pantalla de inicio</b>.<br>Si al abrirla desde el icono te pide el enlace, vuelve a pegarlo aquí arriba.</p>
     </section>
-    <p class="note" style="text-align:center">Finanzas · v0.4</p>
+    <p class="note" style="text-align:center">Finanzas · v0.5</p>
   </div>`;
 }
 
@@ -999,7 +1007,7 @@ const pendientesDe = p => Store.movs.filter(m => isPend(m) && m.perfil === p).so
 function pendBar(p) {
   const n = pendientesDe(p).length;
   if (!n) return '';
-  return `<button class="pendbar" data-act="go" data-arg="pendientes"><div><b>${n} movimiento${n > 1 ? 's' : ''} por revisar</b><div class="small">De tus fotos o de tus gastos fijos. No cuentan hasta que los aceptes.</div></div><span>Revisar ${icon('chevR', 16)}</span></button>`;
+  return `<button class="pendbar" data-act="go" data-arg="pendientes"><div><b>${n} movimiento${n > 1 ? 's' : ''} por revisar</b><div class="small">De tus fotos, gastos fijos o alquileres. No cuentan hasta que los aceptes.</div></div><span>Revisar ${icon('chevR', 16)}</span></button>`;
 }
 function dayDiff(a, b) { return Math.round((parseDate(a) - parseDate(b)) / 864e5); }
 function posibleDuplicado(m) {
@@ -1057,7 +1065,8 @@ function vPatrimonio() {
     ['Ahorro previo', P.hucha, 'var(--good)'],
     ['Meses anteriores', P.anteriores, '#2F8FD8'],
     ['Este mes', P.mes, 'var(--warn-bar)'],
-    ['Inversiones', P.cartera, 'var(--accent-btn)']
+    ['Inversiones', P.cartera, 'var(--accent-btn)'],
+    ['Inmuebles', P.inm, '#0E9AA7']
   ];
   const pos = parts.filter(x => x[1] > 0), tot = sum(pos.map(x => x[1])) || 1;
   const byTipo = {};
@@ -1079,8 +1088,11 @@ function vPatrimonio() {
         <div class="r"><div class="k"><i class="sw" style="background:#2F8FD8"></i>Ahorrado meses anteriores<small>${desde ? 'Desde ' + esc(desde) + ', ingresos − gastos − inversión' : 'Aún no hay meses cerrados'}</small></div><div class="v num ${P.anteriores < 0 ? 'bad' : ''}">${eurS(P.anteriores, 0)}</div></div>
         <div class="r"><div class="k"><i class="sw" style="background:var(--warn-bar)"></i>Ahorrado este mes<small>Se suma a "meses anteriores" al empezar el mes que viene</small></div><div class="v num ${P.mes < 0 ? 'bad' : ''}">${eurS(P.mes, 0)}</div></div>
         <div class="r"><div class="k"><i class="sw" style="background:var(--accent-btn)"></i>Inversiones<small>Valor de mercado actual</small></div><div class="v num">${eur(P.cartera, 0)}</div></div>
+        ${inmDe(p).length ? `<div class="r"><div class="k"><i class="sw" style="background:#0E9AA7"></i>Inmuebles<small>Valor estimado menos hipoteca pendiente, tu parte</small></div><div class="v num">${eur(P.inm, 0)}</div></div>` : ''}
       </div>
     </section>
+
+    ${inmueblesSection(p)}
 
     <div class="sec"><h2>Inversiones</h2><button class="link" data-act="addpos" data-arg="accion">+ Añadir</button></div>
     ${P.invs.length ? `<section class="card">
@@ -1100,6 +1112,240 @@ function vPatrimonio() {
     ${P.huchas.length ? `<div class="list">${P.huchas.map(posRow).join('')}</div>` : `<div class="list"><div class="empty">Apunta aquí lo que ya tenías ahorrado (hucha, cuenta de ahorro…). Es el punto de partida.</div></div>`}
     ${P.invMes ? `<p class="help">Este mes has registrado ${eur(P.invMes, 0)} en la categoría Inversión. Si compraste acciones o participaciones, actualiza aquí sus unidades.</p>` : ''}
   </div>`;
+}
+
+/* ---------- Inmuebles ---------- */
+const USOS = { alquilado: 'Alquilado', vacio: 'Vacío', propia: 'Vivienda propia', construccion: 'En construcción' };
+const inmDe = p => Store.inmuebles.filter(x => x.perfil === p);
+const contratosDe = id => Store.contratos.filter(c => c.inmueble === id).sort((a, b) => b.inicio.localeCompare(a.inicio));
+const conVigente = (c, hoy) => c.activo !== false && c.inicio <= hoy && (!c.fin || c.fin >= hoy);
+function contratoActual(id) {
+  const hoy = todayStr(), cs = contratosDe(id).filter(c => c.activo !== false);
+  return cs.find(c => conVigente(c, hoy)) || cs.filter(c => c.inicio > hoy).sort((a, b) => a.inicio.localeCompare(b.inicio))[0] || null;
+}
+function valorInm(x) { const v = x.valor_actual != null ? x.valor_actual : x.compra_precio; return Number(v) || 0; }
+function netoInm(x) { return (valorInm(x) - (Number(x.hipoteca_pendiente) || 0)) * (Number(x.pct) || 100) / 100; }
+const costeInm = x => (Number(x.compra_precio) || 0) + (Number(x.compra_gastos) || 0);
+function inmAnio(id, y) {
+  const ms = Store.movs.filter(m => m.inmueble === id && !isPend(m) && m.fecha && m.fecha.slice(0, 4) === String(y));
+  const ing = sum(ms.filter(m => m.tipo === 'ingreso').map(m => m.importe)), gas = sum(ms.filter(m => m.tipo === 'gasto').map(m => m.importe));
+  return { ing, gas, neto: ing - gas, n: ms.length };
+}
+function proxRevision(c) {
+  if (!c || !c.inicio) return null;
+  const hoy = todayStr(), [y, m, d] = c.inicio.split('-');
+  for (let yy = Math.max(Number(y) + 1, Number(hoy.slice(0, 4))); yy <= Number(hoy.slice(0, 4)) + 1; yy++) {
+    const r = `${yy}-${m}-${d}`;
+    if (r > hoy && (!c.fin || r <= c.fin)) return r;
+  }
+  return null;
+}
+function estadoInm(x) {
+  const c = contratoActual(x.id), hoy = todayStr();
+  if (c && conVigente(c, hoy)) return { t: 'Alquilado', cls: 'ok', c };
+  if (c) return { t: 'Empieza ' + fechaCorta(c.inicio), cls: 'rv', c };
+  if (x.uso === 'alquilado') return { t: 'Sin inquilino', cls: 'rv', c: null };
+  return { t: USOS[x.uso] || 'Vacío', cls: '', c: null };
+}
+const fechaCorta = d => { const t = parseDate(d); return `${t.getDate()} ${MESES_C[t.getMonth()].toLowerCase()}${t.getFullYear() !== new Date().getFullYear() ? ' ' + t.getFullYear() : ''}`; };
+
+/* Cobros del alquiler: cada mes se crea el ingreso "por revisar", igual que los gastos fijos. */
+const cobroMovId = (c, ym) => `ct-${c.id}-${ym}`;
+function cobroVence(c, ym) {
+  if (!c.inicio || ym < c.inicio.slice(0, 7) || (c.fin && ym > c.fin.slice(0, 7))) return null;
+  const [y, m] = ym.split('-').map(Number);
+  const d = `${ym}-${pad(Math.min(Number(c.dia) || 1, new Date(y, m, 0).getDate()))}`;
+  return d < c.inicio ? c.inicio : d;
+}
+function generadoInicialCon(c) {
+  const ini = c.inicio ? c.inicio.slice(0, 7) : curYM();
+  return addMonths(ini > curYM() ? ini : curYM(), -1);
+}
+function generarCobros() {
+  const hoy = todayStr(), cur = curYM();
+  let n = 0;
+  for (const c of Store.contratos.slice()) {
+    const x = Store.inmuebles.find(i => i.id === c.inmueble);
+    if (!x || c.activo === false || !(c.renta > 0) || !c.inicio) continue;
+    let g = /^\d{4}-\d{2}$/.test(c.generado) ? c.generado : generadoInicialCon(c);
+    const g0 = c.generado;
+    for (let m = addMonths(g, 1), i = 0; m <= cur && i < 24; m = addMonths(m, 1), i++) {
+      const d = cobroVence(c, m);
+      if (!d) { if (c.fin && m > c.fin.slice(0, 7)) break; g = m; continue; }
+      if (d > hoy) break;
+      if (!Store.movs.some(z => z.id === cobroMovId(c, m))) {
+        Store.commit({ op: 'upsert', mov: { id: cobroMovId(c, m), fecha: d, perfil: x.perfil, tipo: 'ingreso', importe: c.renta,
+          categoria: 'alquiler', etiqueta: '', comun: false, reparto: 50, nota: 'Alquiler · ' + x.nombre, creado: new Date().toISOString(),
+          estado: 'pendiente', inmueble: x.id } });
+        n++;
+      }
+      g = m;
+    }
+    if (g !== g0) Store.commit({ op: 'upsertCon', con: { ...c, generado: g } });
+  }
+  return n;
+}
+
+function inmCard(x) {
+  const e = estadoInm(x), y = new Date().getFullYear(), a = inmAnio(x.id, y), coste = costeInm(x);
+  const bruta = e.c && conVigente(e.c, todayStr()) && coste > 0 ? e.c.renta * 12 / coste : null;
+  return `<button class="row" data-act="verinm" data-arg="${esc(x.id)}" style="align-items:flex-start">
+    <div class="tile t-accent">${icon('home', 20)}</div>
+    <div class="mid"><div class="tt">${esc(x.nombre)}</div>
+      <div class="sub"><span class="chip2 ${e.cls}">${esc(e.t)}</span>${e.c ? ` · ${eur(e.c.renta, 0)}/mes` : ''}</div>
+      <div class="sub">${y}: ${a.n ? `neto ${eurS(a.neto, 0)}` : 'sin movimientos'}${bruta != null ? ` · rentab. bruta ${num(bruta * 100, 1)} %` : ''}</div></div>
+    <div class="rt"><div class="am num">${eur(valorInm(x), 0)}</div>${x.hipoteca_pendiente ? `<div class="sub">hipoteca ${eur(x.hipoteca_pendiente, 0)}</div>` : ''}</div></button>`;
+}
+function inmueblesSection(p) {
+  const xs = inmDe(p);
+  return `<div class="sec"><h2>Inmuebles</h2><button class="link" data-act="addinm">+ Añadir</button></div>
+    ${xs.length ? `<div class="list">${xs.map(inmCard).join('')}</div>`
+    : '<div class="list"><div class="empty">Añade tu piso para llevar el alquiler, sus gastos y lo que necesitará el asesor para la renta.</div></div>'}`;
+}
+function vInmueble() {
+  const x = Store.inmuebles.find(i => i.id === UI.inm);
+  if (!x) { UI.view = 'patrimonio'; return vPatrimonio(); }
+  const y = UI.inmYear || new Date().getFullYear(), a = inmAnio(x.id, y), coste = costeInm(x), e = estadoInm(x), hoy = todayStr();
+  const cs = contratosDe(x.id), rev = e.c && conVigente(e.c, hoy) ? proxRevision(e.c) : null;
+  const movs = Store.movs.filter(m => m.inmueble === x.id && m.fecha && m.fecha.slice(0, 4) === String(y)).sort(sortDesc);
+  const pend = Store.movs.filter(m => m.inmueble === x.id && isPend(m)).length;
+  const avisos = [];
+  if (rev && dayDiff(rev, hoy) <= 60) avisos.push(`Revisión de la renta el <b>${fechaCorta(rev)}</b>.`);
+  if (e.c && e.c.fin && e.c.fin >= hoy && dayDiff(e.c.fin, hoy) <= 90) avisos.push(`El contrato termina el <b>${fechaCorta(e.c.fin)}</b>.`);
+  return `${header()}
+  <div class="stack" style="margin-top:12px">
+    <button class="link" data-act="go" data-arg="patrimonio" style="align-self:flex-start;padding:0">${icon('chevL', 16)} Patrimonio</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-.6px">${esc(x.nombre)}</h1><button class="link" data-act="editinm" data-arg="${esc(x.id)}">Editar</button></div>
+    <div class="small muted">${x.direccion ? esc(x.direccion) + ' · ' : ''}<span class="chip2 ${e.cls}">${esc(e.t)}</span>${Number(x.pct) < 100 ? ` · tuyo al ${num(x.pct, 0)} %` : ''}</div>
+    ${pend ? pendBar(x.perfil) : ''}
+    ${avisos.map(t => `<div class="banner" style="display:block">${t}</div>`).join('')}
+    <section class="card">
+      ${monthNav(String(y), 'inmyear')}
+      <div class="kpis">
+        <div class="kpi"><div class="small muted">Ingresos</div><div class="v num good">${eur(a.ing, 0)}</div></div>
+        <div class="kpi"><div class="small muted">Gastos</div><div class="v num">${eur(a.gas, 0)}</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px">
+        <div class="label">Neto ${y}</div><div class="big num ${a.neto < 0 ? 'bad' : ''}" style="font-size:26px">${eurS(a.neto, 0)}</div></div>
+      ${coste > 0 ? `<div class="small muted">Rentabilidad neta ${num(a.neto / coste * 100, 1)} % sobre ${eur(coste, 0)} de compra${e.c && conVigente(e.c, hoy) ? ` · bruta ${num(e.c.renta * 12 / coste * 100, 1)} % con la renta actual` : ''}</div>` : '<div class="small muted">Pon el precio de compra en la ficha para ver la rentabilidad.</div>'}
+    </section>
+    <div class="grid2">
+      <button class="btn sec2" data-act="addmovinm" data-arg="gasto">+ Gasto del piso</button>
+      <button class="btn sec2" data-act="addmovinm" data-arg="ingreso">+ Ingreso</button>
+    </div>
+
+    <div class="sec"><h2>Contratos</h2><button class="link" data-act="addcon">+ Añadir</button></div>
+    ${cs.length ? `<div class="list">${cs.map(c => {
+      const vig = conVigente(c, hoy), fut = c.activo !== false && c.inicio > hoy;
+      return `<button class="row" data-act="editcon" data-arg="${esc(c.id)}"><div class="tile ${vig ? 't-good' : ''}">${icon('users', 20)}</div>
+        <div class="mid"><div class="tt">${esc(c.inquilino || 'Inquilino')}</div><div class="sub">${fechaCorta(c.inicio)} → ${c.fin ? fechaCorta(c.fin) : 'sin fin'} · cobro día ${c.dia}${vig && proxRevision(c) ? ` · revisión ${fechaCorta(proxRevision(c))}` : ''}</div></div>
+        <div class="rt"><div class="am num">${eur(c.renta, 0)}</div>${vig ? '<span class="chip2 ok">vigente</span>' : fut ? '<span class="chip2 rv">próximo</span>' : '<span class="chip2">terminado</span>'}</div></button>`;
+    }).join('')}</div>` : '<div class="list"><div class="empty">Cuando firmes con el inquilino, añade el contrato: cada mes se creará el cobro en "Por revisar".</div></div>'}
+
+    <div class="sec"><h2>Movimientos ${y}</h2></div>
+    ${movs.length ? `<div class="list">${movs.map(m => movRow(m, null)).join('')}</div>` : '<div class="list"><div class="empty">Elige este piso al apuntar un gasto (IBI, comunidad, seguro, reparaciones…) y aparecerá aquí.</div></div>'}
+    <p class="help">La ficha y los contratos se guardan en las pestañas Inmuebles y Contratos de tu hoja.</p>
+  </div>`;
+}
+
+/* ---------- Hoja de inmueble ---------- */
+let IF = null;
+const INM_NUM = ['pct', 'compra_precio', 'compra_gastos', 'vcat_total', 'vcat_constr', 'valor_actual', 'hipoteca_cuota', 'hipoteca_pendiente'];
+const INM_TXT = ['nombre', 'direccion', 'refcat', 'hipoteca_banco', 'nota', 'compra_fecha'];
+function openInm(x) {
+  IF = x ? { ...x, editing: true, orig: { ...x } } : { id: null, perfil: cfg.perfil, nombre: '', uso: 'alquilado', pct: 100, editing: false };
+  INM_NUM.forEach(k => { IF[k] = decStr(IF[k]); });
+  renderInm();
+  document.body.style.overflow = 'hidden';
+}
+function readIF() {
+  [...INM_NUM, ...INM_TXT].forEach(k => { const el = document.getElementById('i-' + k); if (el) IF[k] = el.value.trim(); });
+}
+function renderInm() {
+  const f = (k, label, attrs) => `<div class="field"><label for="i-${k}">${label}</label><input class="input" id="i-${k}" value="${esc(IF[k] == null ? '' : IF[k])}" ${attrs || ''}></div>`;
+  const dec = 'inputmode="decimal" placeholder="0,00"';
+  document.getElementById('sheet-root').innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="Inmueble">
+    <div class="sh-top"><button class="icon-btn" data-act="close" aria-label="Cerrar">${icon('x', 20)}</button>
+      <div class="label">${IF.editing ? 'Editar inmueble' : 'Nuevo inmueble'}</div><span style="width:44px"></span></div>
+    <div class="sh-scroll">
+      ${f('nombre', 'Nombre', 'placeholder="Piso Calle Mayor" maxlength="60"')}
+      <div class="field"><label>Uso</label><div class="pill wrap" role="group" aria-label="Uso">${Object.entries(USOS).map(([k, l]) =>
+        `<button class="${IF.uso === k ? 'on' : ''}" data-act="iuso" data-arg="${k}">${l}</button>`).join('')}</div></div>
+      ${f('direccion', 'Dirección (opcional)', 'maxlength="120"')}
+      <div class="sec" style="margin-top:6px"><h2 style="font-size:15px">Compra</h2></div>
+      <div class="grid2">${f('compra_fecha', 'Fecha', 'type="date"')}${f('compra_precio', 'Precio (€)', dec)}</div>
+      <div class="grid2">${f('compra_gastos', 'Gastos de compra (€)', dec + ' title="Notaría, registro, impuestos, agencia"')}${f('pct', 'Tu parte (%)', 'inputmode="numeric" placeholder="100"')}</div>
+      <div class="sec" style="margin-top:6px"><h2 style="font-size:15px">Valor</h2></div>
+      <div class="grid2">${f('valor_actual', 'Valor actual estimado (€)', dec)}${f('refcat', 'Referencia catastral', 'maxlength="30" autocapitalize="characters"')}</div>
+      <div class="grid2">${f('vcat_total', 'Valor catastral (€)', dec)}${f('vcat_constr', 'Del cual construcción (€)', dec)}</div>
+      <p class="help" style="margin-top:-6px">Los dos valores catastrales vienen en el recibo del IBI. Servirán para la amortización y la renta.</p>
+      <div class="sec" style="margin-top:6px"><h2 style="font-size:15px">Hipoteca (opcional)</h2></div>
+      ${f('hipoteca_banco', 'Banco', 'maxlength="40"')}
+      <div class="grid2">${f('hipoteca_cuota', 'Cuota mensual (€)', dec)}${f('hipoteca_pendiente', 'Capital pendiente (€)', dec)}</div>
+      ${f('nota', 'Nota', 'maxlength="200"')}
+      ${IF.editing ? '<button class="btn danger" data-act="delinm">Eliminar inmueble</button>' : ''}
+    </div>
+    <button class="save" data-act="saveinm">Guardar</button></div>`;
+}
+function saveInm() {
+  readIF();
+  if (!IF.nombre) { toast('Ponle un nombre'); return; }
+  const x = { id: IF.id || uid(), perfil: IF.perfil, nombre: IF.nombre, direccion: IF.direccion || '', refcat: (IF.refcat || '').toUpperCase(),
+    uso: IF.uso, compra_fecha: /^\d{4}-\d{2}-\d{2}$/.test(IF.compra_fecha || '') ? IF.compra_fecha : '', hipoteca_banco: IF.hipoteca_banco || '', nota: IF.nota || '' };
+  INM_NUM.forEach(k => { x[k] = parseMoney(IF[k]); });
+  if (!(x.pct > 0 && x.pct <= 100)) x.pct = 100;
+  const o = IF.orig;
+  Store.commit({ op: 'upsertInm', inm: x });
+  closeSheet();
+  if (!o) { UI.view = 'inmueble'; UI.inm = x.id; UI.inmYear = null; }
+  render(); window.scrollTo(0, 0);
+  toast('Inmueble guardado', o ? () => { Store.commit({ op: 'upsertInm', inm: o }); render(); } : () => { Store.commit({ op: 'deleteInm', id: x.id }); UI.view = 'patrimonio'; render(); });
+}
+
+/* ---------- Hoja de contrato ---------- */
+let CF = null;
+function openCon(c, inmId) {
+  CF = c ? { ...c, renta: decStr(c.renta), fianza: decStr(c.fianza), editing: true, orig: { ...c } }
+    : { id: null, inmueble: inmId, inquilino: '', inicio: todayStr(), fin: '', firma: '', renta: '', dia: 1, fianza: '', activo: true, nota: '', editing: false };
+  renderCon();
+  document.body.style.overflow = 'hidden';
+}
+function readCF() {
+  ['inquilino', 'inicio', 'fin', 'firma', 'renta', 'dia', 'fianza', 'nota'].forEach(k => { const el = document.getElementById('c-' + k); if (el) CF[k] = el.value.trim(); });
+  const a = document.getElementById('c-activo'); if (a) CF.activo = a.checked;
+}
+function renderCon() {
+  const c = CF, f = (k, label, attrs) => `<div class="field"><label for="c-${k}">${label}</label><input class="input" id="c-${k}" value="${esc(c[k] == null ? '' : c[k])}" ${attrs || ''}></div>`;
+  document.getElementById('sheet-root').innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="Contrato">
+    <div class="sh-top"><button class="icon-btn" data-act="close" aria-label="Cerrar">${icon('x', 20)}</button>
+      <div class="label">${c.editing ? 'Editar contrato' : 'Nuevo contrato'}</div><span style="width:44px"></span></div>
+    <div class="sh-scroll">
+      ${f('inquilino', 'Inquilino', 'maxlength="80" placeholder="Nombre y apellidos"')}
+      <div class="grid2">${f('renta', 'Renta mensual (€)', 'inputmode="decimal" placeholder="0,00"')}${f('dia', 'Día de cobro', 'type="number" inputmode="numeric" min="1" max="31"')}</div>
+      <div class="grid2">${f('inicio', 'Empieza', 'type="date"')}${f('fin', 'Termina (opcional)', 'type="date"')}</div>
+      <div class="grid2">${f('firma', 'Fecha de firma', 'type="date"')}${f('fianza', 'Fianza (€)', 'inputmode="decimal" placeholder="0,00"')}</div>
+      <p class="help" style="margin-top:-6px">La fecha de firma decide la reducción del alquiler en la renta (contratos antes o después del 26 de mayo de 2023). Si la dejas vacía se usa la de inicio.</p>
+      ${f('nota', 'Nota', 'maxlength="200"')}
+      ${c.editing ? `<div class="box"><div class="line"><label for="c-activo">Activo</label><input id="c-activo" type="checkbox" ${c.activo !== false ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent-btn)"></div></div>` : ''}
+      <p class="help">Cada mes, el día de cobro, se creará el ingreso del alquiler en "Por revisar". Lo aceptas cuando llegue al banco.</p>
+      ${c.editing ? '<button class="btn danger" data-act="delcon">Eliminar contrato</button>' : ''}
+    </div>
+    <button class="save" data-act="savecon">Guardar</button></div>`;
+}
+function saveCon() {
+  readCF();
+  const renta = parseMoney(CF.renta), ok = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+  if (!(renta > 0)) { toast('Pon la renta mensual'); return; }
+  if (!ok(CF.inicio)) { toast('Pon la fecha de inicio'); return; }
+  if (ok(CF.fin) && CF.fin < CF.inicio) { toast('La fecha de fin es anterior al inicio'); return; }
+  const c = { id: CF.id || uid(), inmueble: CF.inmueble, inquilino: CF.inquilino || '', inicio: CF.inicio, fin: ok(CF.fin) ? CF.fin : '',
+    firma: ok(CF.firma) ? CF.firma : CF.inicio, renta: Math.round(renta * 100) / 100, dia: Math.min(31, Math.max(1, Number(CF.dia) || 1)),
+    fianza: parseMoney(CF.fianza), activo: CF.activo !== false, nota: CF.nota || '', generado: CF.generado || '' };
+  const o = CF.orig;
+  if (!o || o.inicio !== c.inicio || Number(o.dia) !== c.dia || (o.activo === false && c.activo)) c.generado = generadoInicialCon(c);
+  Store.commit({ op: 'upsertCon', con: c });
+  closeSheet(); generarCobros(); render();
+  toast('Contrato guardado', o ? () => { Store.commit({ op: 'upsertCon', con: o }); render(); } : () => { Store.commit({ op: 'deleteCon', id: c.id }); render(); });
 }
 
 /* ---------- Gastos fijos ---------- */
@@ -1240,7 +1486,7 @@ function saveFijo() {
   toast('Gasto fijo guardado', o ? () => { Store.commit({ op: 'upsertFijo', fijo: o }); render(); } : () => { Store.commit({ op: 'deleteFijo', id: f.id }); render(); });
 }
 
-const VIEWS = { inicio: vInicio, analisis: vAnalisis, comun: vComun, movs: vMovs, ajustes: vAjustes, pendientes: vPendientes, patrimonio: vPatrimonio, fijos: vFijos };
+const VIEWS = { inicio: vInicio, analisis: vAnalisis, comun: vComun, movs: vMovs, ajustes: vAjustes, pendientes: vPendientes, patrimonio: vPatrimonio, fijos: vFijos, inmueble: vInmueble };
 function renderNav() {
   const it = (v, ic, l) => `<button class="${UI.view === v ? 'on' : ''}" data-act="go" data-arg="${v}" ${UI.view === v ? 'aria-current="page"' : ''}>${icon(ic, 24)}${l}</button>`;
   document.getElementById('nav').innerHTML =
@@ -1264,9 +1510,9 @@ function usageOrder(p, tipo) {
 function openSheet(m) {
   if (m) {
     F = { id: m.id, tipo: m.tipo, amt: String(m.importe).replace('.', ','), categoria: m.categoria, etiqueta: m.etiqueta || '', comun: !!m.comun,
-      reparto: m.reparto == null ? 50 : m.reparto, perfil: m.perfil, fecha: m.fecha, nota: m.nota || '', creado: m.creado, estado: m.estado || '', adjunto: m.adjunto || '', factura: m.factura || null, editing: true, etTouched: m.estado === 'pendiente' ? !!m.etiqueta : true, comunTouched: m.estado !== 'pendiente', orig: { ...m } };
+      reparto: m.reparto == null ? 50 : m.reparto, perfil: m.perfil, fecha: m.fecha, nota: m.nota || '', inmueble: m.inmueble || '', creado: m.creado, estado: m.estado || '', adjunto: m.adjunto || '', factura: m.factura || null, editing: true, etTouched: m.estado === 'pendiente' ? !!m.etiqueta : true, comunTouched: m.estado !== 'pendiente', orig: { ...m } };
   } else {
-    F = { id: null, tipo: 'gasto', amt: '0', categoria: null, etiqueta: '', comun: false, reparto: 50, perfil: cfg.perfil, fecha: todayStr(), nota: '', editing: false, etTouched: false, comunTouched: false };
+    F = { id: null, tipo: 'gasto', amt: '0', categoria: null, etiqueta: '', comun: false, reparto: 50, perfil: cfg.perfil, fecha: todayStr(), nota: '', inmueble: '', editing: false, etTouched: false, comunTouched: false };
     F.order = usageOrder(cfg.perfil, 'gasto');
   }
   if (!F.order) F.order = F.tipo === 'ingreso' ? CATS_ING : CATS;
@@ -1274,7 +1520,7 @@ function openSheet(m) {
   document.body.style.overflow = 'hidden';
 }
 function closeSheet() {
-  F = null; PF = null; FF = null;
+  F = null; PF = null; FF = null; IF = null; CF = null;
   document.getElementById('sheet-root').innerHTML = '';
   document.body.style.overflow = '';
 }
@@ -1315,6 +1561,7 @@ function renderSheet() {
         ${F.comun ? `<div class="line"><span>Pagó</span><div class="pill">${PERFILES.map(p => `<button class="${F.perfil === p ? 'on' : ''}" data-act="pagador" data-arg="${p}">${esc(nombre(p))}</button>`).join('')}</div></div>
         <div class="line"><label for="rep">Parte de ${esc(nombre(F.perfil))} (%)</label><input id="rep" class="pct" type="number" inputmode="numeric" min="0" max="100" value="${F.reparto}"></div>` : ''}
       </div>` : ''}
+      ${inmDe(F.perfil).length ? `<div class="box"><div class="line"><label for="inm">Inmueble</label><select id="inm" class="input" style="width:auto;max-width:60%;padding:6px 10px"><option value="">—</option>${inmDe(F.perfil).map(x => `<option value="${esc(x.id)}" ${F.inmueble === x.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></div></div>` : ''}
       <input class="input" id="nota" placeholder="Nota (opcional): Mercadona, Glovo…" maxlength="80" value="${esc(F.nota)}">`;
   }
   root.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="${F.editing ? 'Editar' : 'Añadir'} movimiento">
@@ -1358,7 +1605,7 @@ function saveSheet() {
     etiqueta: g && F.categoria !== 'inversion' ? F.etiqueta : '', comun: g && F.comun && F.categoria !== 'inversion',
     reparto: g && F.comun ? Math.max(0, Math.min(100, Number(F.reparto) || 0)) : 50,
     nota: (F.nota || '').trim(), creado: F.creado || new Date().toISOString(), estado: '',
-    adjunto: F.adjunto || '', factura: F.factura || null
+    adjunto: F.adjunto || '', factura: F.factura || null, inmueble: F.tipo === 'liquidacion' ? '' : (F.inmueble || '')
   };
   const wasPend = F.estado === 'pendiente';
   const orig = F.orig;
@@ -1443,6 +1690,8 @@ function parseDec(v) {
   const n = Number(t);
   return isFinite(n) ? n : null;
 }
+// Importes en euros: "150.000" son 150 mil (punto de miles), "1.234,5" y "1234.5" también valen.
+const parseMoney = v => { const t = String(v == null ? '' : v).trim().replace(/\s|€/g, ''); return /^\d{1,3}(\.\d{3})+$/.test(t) ? Number(t.replace(/\./g, '')) : parseDec(t); };
 const decStr = n => (n == null || n === '' ? '' : String(n).replace('.', ','));
 function openPos(x, tipo) {
   if (x) {
@@ -1602,6 +1851,32 @@ const ACT = {
     toast('Eliminado', () => { Store.commit({ op: 'upsertPos', pos: orig }); render(); });
   },
   fijomes(m) { UI.fijoMes = m; render(); },
+  verinm(id) { UI.view = 'inmueble'; UI.inm = id; UI.inmYear = null; render(); window.scrollTo(0, 0); },
+  inmyear(d) { UI.inmYear = (UI.inmYear || new Date().getFullYear()) + Number(d); render(); },
+  addinm() { openInm(null); },
+  editinm(id) { const x = Store.inmuebles.find(i => i.id === id); if (x) openInm(x); },
+  iuso(k) { readIF(); IF.uso = k; renderInm(); },
+  saveinm() { saveInm(); },
+  delinm() {
+    const o = IF.orig, cs = Store.contratos.filter(c => c.inmueble === o.id);
+    Store.commit({ op: 'deleteInm', id: o.id }); cs.forEach(c => Store.commit({ op: 'deleteCon', id: c.id }));
+    closeSheet(); UI.view = 'patrimonio'; render();
+    toast('Inmueble eliminado', () => { Store.commit({ op: 'upsertInm', inm: o }); cs.forEach(c => Store.commit({ op: 'upsertCon', con: c })); render(); });
+  },
+  addcon() { openCon(null, UI.inm); },
+  editcon(id) { const c = Store.contratos.find(x => x.id === id); if (c) openCon(c); },
+  savecon() { saveCon(); },
+  delcon() {
+    const o = CF.orig;
+    Store.commit({ op: 'deleteCon', id: o.id });
+    closeSheet(); render();
+    toast('Contrato eliminado', () => { Store.commit({ op: 'upsertCon', con: o }); render(); });
+  },
+  addmovinm(t) {
+    openSheet(null); F.inmueble = UI.inm;
+    if (t === 'ingreso') { ACT.tipo('ingreso'); F.categoria = 'alquiler'; } else { F.categoria = 'vivienda'; F.etiqueta = 'necesario'; F.etTouched = true; }
+    renderSheet();
+  },
   addfijo() { openFijo(null); },
   editfijo(id) { const f = Store.fijos.find(x => x.id === id); if (f) openFijo(f); },
   ffreq(k) { readFF(); FF.frecuencia = k; renderFijo(); },
@@ -1642,7 +1917,7 @@ const ACT = {
     try {
       await api('GET', null, '&action=ping');
       saveCfg();
-      if (old.api !== url) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); Store.queue = []; LS.set('fin_queue', []); serverConf = null; }
+      if (old.api !== url) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); LS.del('fin_cache_inm'); LS.del('fin_cache_con'); Store.queue = []; LS.set('fin_queue', []); serverConf = null; }
       await Store.load();
       UI.testMsg = `Conectado ✓ ${Store.movs.length} movimientos en tu hoja.`;
     } catch (e) {
@@ -1673,11 +1948,11 @@ const ACT = {
   },
   async disconnect() {
     cfg.api = ''; cfg.token = ''; saveCfg();
-    LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); Store.queue = []; LS.set('fin_queue', []);
+    LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); LS.del('fin_cache_inm'); LS.del('fin_cache_con'); Store.queue = []; LS.set('fin_queue', []);
     UI.testMsg = 'Desconectado. Vuelves al modo demo.';
     await Store.load(); render();
   },
-  async resetdemo() { LS.del('fin_demo'); LS.del('fin_demo_cartera'); LS.del('fin_demo_fijos'); await Store.load(); toast('Datos de ejemplo regenerados'); render(); },
+  async resetdemo() { LS.del('fin_demo'); LS.del('fin_demo_cartera'); LS.del('fin_demo_fijos'); LS.del('fin_demo_inm'); LS.del('fin_demo_con'); await Store.load(); toast('Datos de ejemplo regenerados'); render(); },
   csv() {
     const H = ['fecha', 'perfil', 'tipo', 'importe', 'categoria', 'etiqueta', 'comun', 'reparto', 'nota'];
     const q = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
@@ -1704,6 +1979,7 @@ document.addEventListener('change', e => {
   if (el.id === 'scanfact' && F && el.files && el.files[0]) { handleScan(el.files[0], true); return; }
   if (el.id === 'f-comun' && FF) { readFF(); renderFijo(); return; }
   if (el.id === 'fecha' && F) { if (/^\d{4}-\d{2}-\d{2}$/.test(el.value)) F.fecha = el.value; renderSheet(); return; }
+  if (el.id === 'inm' && F) { F.inmueble = el.value; return; }
   if (el.id === 'rep' && F) { F.reparto = Math.max(0, Math.min(100, Number(el.value) || 0)); return; }
   const path = el.dataset.cfg;
   if (path) {
@@ -1798,6 +2074,16 @@ function seedCartera() {
   ];
 }
 
+function seedInm() {
+  return [{ id: 'di1', perfil: 'maik', nombre: 'Piso Calle Mayor', direccion: '', refcat: '', uso: 'alquilado', pct: 100, compra_fecha: '2021-06-15',
+    compra_precio: 145000, compra_gastos: 14500, vcat_total: 68000, vcat_constr: 41000, valor_actual: 182000, hipoteca_banco: 'Openbank',
+    hipoteca_cuota: 520, hipoteca_pendiente: 98000, nota: '' }];
+}
+function seedCon() {
+  const y = new Date().getFullYear();
+  return [{ id: 'dc1', inmueble: 'di1', inquilino: 'Inquilino de ejemplo', inicio: `${y - 1}-02-01`, fin: `${y + 4}-01-31`, firma: `${y - 1}-01-20`,
+    renta: 750, dia: 1, fianza: 750, activo: true, nota: '', generado: addMonths(curYM(), -3) }];
+}
 function seedFijos() {
   const g = curYM();
   const f = (id, perfil, nombre, importe, categoria, frecuencia, mes, dia, comun) =>
@@ -1821,7 +2107,7 @@ function seedFijos() {
 (function leerEnlace() {
   const L = parseEnlace(location.href);
   if (!L) return;
-  if (L.api !== cfg.api) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); Store.queue = []; LS.set('fin_queue', []); }
+  if (L.api !== cfg.api) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); LS.del('fin_cache_inm'); LS.del('fin_cache_con'); Store.queue = []; LS.set('fin_queue', []); }
   cfg.api = L.api; cfg.token = L.token; saveCfg();
   UI.recienEnlazado = location.href;
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}

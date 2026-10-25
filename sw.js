@@ -1,5 +1,5 @@
 // Service worker: la app funciona sin conexión y se actualiza sola cuando hay red.
-const CACHE = 'finanzas-v4';
+const CACHE = 'finanzas-v5';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
