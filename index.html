@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#F3F3F6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0F1015" media="(prefers-color-scheme: dark)">
-<meta name="description" content="Finanzas de Maik y Consu: gastos, análisis y gastos comunes.">
+<meta name="description" content="Finanzas personales y en pareja: gastos, gastos fijos, inversiones y facturas.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="icon" href="./icon-192.png">
@@ -45,6 +45,8 @@
   color-scheme: dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
+details summary{list-style:none}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 body{min-height:100vh;min-height:100dvh}
 button,input,select{font:inherit;color:inherit}
@@ -378,9 +380,10 @@ const PERFILES = ['maik', 'consu'];
 /* ================= Config ================= */
 const DEFAULT_CFG = {
   perfil: 'consu',
-  nombres: { maik: 'Maik', consu: 'Consu' },
-  horas: { maik: 173, consu: 173 },
-  variable: { maik: false, consu: true },
+  nombres: { maik: 'Persona 1', consu: 'Persona 2' },
+  horas: { maik: 160, consu: 160 },
+  variable: { maik: false, consu: false },
+  modo: 'pareja',
   api: '', token: ''
 };
 function loadCfg() {
@@ -396,6 +399,28 @@ let cfg = loadCfg();
 const saveCfg = () => LS.set('fin_cfg', cfg);
 const nombre = p => cfg.nombres[p] || p;
 const otro = p => (p === 'maik' ? 'consu' : 'maik');
+const solo = () => cfg.modo === 'individual';
+let serverConf = null;
+function applyServerConfig(c) {
+  if (!c) return;
+  serverConf = c;
+  let ch = false;
+  PERFILES.forEach(p => {
+    if (c.nombres && c.nombres[p] && cfg.nombres[p] !== c.nombres[p]) { cfg.nombres[p] = c.nombres[p]; ch = true; }
+    if (c.horas && c.horas[p] && cfg.horas[p] !== c.horas[p]) { cfg.horas[p] = c.horas[p]; ch = true; }
+    if (c.variable && c.variable[p] != null && cfg.variable[p] !== c.variable[p]) { cfg.variable[p] = c.variable[p]; ch = true; }
+  });
+  const modo = c.modo === 'individual' ? 'individual' : 'pareja';
+  if (cfg.modo !== modo) { cfg.modo = modo; ch = true; }
+  if (solo() && cfg.perfil !== 'maik') { cfg.perfil = 'maik'; ch = true; }
+  if (ch) saveCfg();
+}
+function parseEnlace(txt) {
+  const t = String(txt || '').trim(), i = t.indexOf('#');
+  if (i < 0) return null;
+  const q = new URLSearchParams(t.slice(i + 1)), a = q.get('api'), k = q.get('token');
+  return a && k && /^https:\/\//.test(a) ? { api: a, token: k } : null;
+}
 
 /* ================= Datos ================= */
 function applyOp(st, op) {
@@ -461,6 +486,7 @@ const Store = {
       this.movs = r.movs || [];
       this.cartera = r.cartera || [];
       this.fijos = r.fijos || [];
+      applyServerConfig(r.config);
       this.ia = !!r.ia;
       this.queue.forEach(op => applyOp(this, op));
       this.saveLocal();
@@ -661,12 +687,20 @@ function syncBadge() {
   return `<button class="sync" data-act="sync" aria-label="Sincronizar: ${txt}"><span class="dot ${cls}"></span>${txt}</button>`;
 }
 function profSeg() {
+  if (solo()) return `<div style="font-size:20px;font-weight:800;letter-spacing:-.3px">Hola, ${esc(nombre('maik'))}</div>`;
   return `<div class="seg" role="tablist" aria-label="Perfil">${PERFILES.map(p =>
     `<button role="tab" aria-selected="${cfg.perfil === p}" class="${cfg.perfil === p ? 'on' : ''}" data-act="perfil" data-arg="${p}">${esc(nombre(p))}</button>`).join('')}</div>`;
 }
 function header(title) {
   return `<header class="top">${title ? `<h1>${esc(title)}</h1>` : profSeg()}
     <div class="top-r">${syncBadge()}<button class="icon-btn" data-act="go" data-arg="ajustes" aria-label="Ajustes">${icon('gear', 20)}</button></div></header>`;
+}
+function linkBanner() {
+  if (!UI.recienEnlazado) return '';
+  const standalone = window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  if (standalone) return '';
+  return `<div class="banner" style="display:block;line-height:1.5"><b>¡Conectada!</b> Ahora instálala: <b>Compartir → Añadir a pantalla de inicio</b>. Si al abrirla desde el icono te pide el enlace, cópialo aquí y pégalo en Ajustes:
+    <button data-act="copylink" style="display:block;margin-top:6px;padding:0">Copiar mi enlace</button></div>`;
 }
 function demoBanner() {
   if (!Store.isDemo()) return '';
@@ -702,6 +736,7 @@ function movRow(m, p) {
     amt = '−' + eur(m.importe);
     if (m.comun && p) extra = `<div class="sub">tu parte ${eur(shareOf(m, p))}</div>`;
   }
+  if (m.adjunto) sub.push('factura');
   sub.push(relDate(m.fecha));
   return `<button class="row" data-act="edit" data-arg="${esc(m.id)}">
     <div class="tile ${tile}">${icon(ic, 20)}</div>
@@ -754,7 +789,7 @@ function vInicio() {
   const recent = Store.movs.filter(m => relevant(m, p)).sort(sortDesc).slice(0, 6);
   return `${header()}
   <div class="stack" style="margin-top:12px">
-    ${demoBanner()}${errBanner()}
+    ${linkBanner()}${demoBanner()}${errBanner()}
     <section class="card" aria-label="Resumen del mes">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="label">Te queda este mes</div><div class="label" style="text-transform:capitalize">${esc(monthLabel(ym))}</div></div>
       <div class="big ${bal < 0 ? 'bad' : ''}">${eurS(bal, 0)}</div>
@@ -902,34 +937,60 @@ function vMovs() {
 }
 
 function vAjustes() {
+  const fromSheet = (k, p) => serverConf && serverConf[k] && serverConf[k][p] != null && serverConf[k][p] !== '';
+  const ro = (k, p) => fromSheet(k, p) ? 'readonly aria-readonly="true" style="opacity:.7"' : '';
   const prof = p => `
-    <div class="field"><label for="n-${p}">Nombre</label><input class="input" id="n-${p}" data-cfg="nombres.${p}" value="${esc(cfg.nombres[p])}" maxlength="20"></div>
-    <div class="field"><label for="h-${p}">Horas de trabajo al mes</label><input class="input" id="h-${p}" type="number" inputmode="numeric" min="1" max="400" data-cfg="horas.${p}" value="${esc(cfg.horas[p])}"></div>
-    <div class="toggle"><label for="v-${p}">Ingresos variables (autónomo)</label><input id="v-${p}" type="checkbox" data-cfg="variable.${p}" ${cfg.variable[p] ? 'checked' : ''}></div>`;
+    <div class="field"><label for="n-${p}">Nombre</label><input class="input" id="n-${p}" data-cfg="nombres.${p}" value="${esc(cfg.nombres[p])}" maxlength="20" ${ro('nombres', p)}></div>
+    <div class="field"><label for="h-${p}">Horas de trabajo al mes</label><input class="input" id="h-${p}" type="number" inputmode="numeric" min="1" max="400" data-cfg="horas.${p}" value="${esc(cfg.horas[p])}" ${ro('horas', p)}></div>
+    <div class="toggle"><label for="v-${p}">Ingresos variables (autónomo)</label><input id="v-${p}" type="checkbox" data-cfg="variable.${p}" ${cfg.variable[p] ? 'checked' : ''} ${fromSheet('variable', p) ? 'disabled' : ''}></div>
+    ${fromSheet('nombres', p) || fromSheet('horas', p) || fromSheet('variable', p) ? '<p class="help">Los datos en gris se cambian en la pestaña Configuración de vuestra hoja.</p>' : ''}`;
+  const now = new Date(), qNow = Math.floor(now.getMonth() / 3) + 1;
+  const E = UI.exp || (UI.exp = { anio: now.getFullYear(), t: qNow });
+  const desde = `${E.anio}-${pad(E.t * 3 - 2)}`, hasta = `${E.anio}-${pad(E.t * 3)}`;
+  const nFact = Store.movs.filter(m => m.adjunto && m.perfil === cfg.perfil && !isPend(m) && m.fecha.slice(0, 7) >= desde && m.fecha.slice(0, 7) <= hasta).length;
   return `<header class="top"><div style="display:flex;align-items:center;gap:12px"><button class="icon-btn" data-act="go" data-arg="inicio" aria-label="Volver">${icon('back', 20)}</button><h1>Ajustes</h1></div></header>
   <div class="stack" style="margin-top:12px">
-    <section class="card"><h2>Perfil 1</h2>${prof('maik')}</section>
-    <section class="card"><h2>Perfil 2</h2>${prof('consu')}</section>
     <section class="card">
-      <h2>Conexión con Google Sheet</h2>
-      <p class="note">Pega la URL de la aplicación web de Apps Script (acaba en <b>/exec</b>) y el token que pusiste en el código. Haz lo mismo en el móvil de ${esc(nombre(otro(cfg.perfil)))}.</p>
-      <div class="field"><label for="api">URL de la API</label><input class="input" id="api" type="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(cfg.api)}"></div>
-      <div class="field"><label for="tok">Token</label><input class="input" id="tok" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cfg.token)}"></div>
-      <button class="btn" data-act="connect">Guardar y probar conexión</button>
+      <h2>Conexión con tu hoja</h2>
+      ${cfg.api ? `<div class="status" style="color:var(--good)">Conectada${Store.ia ? ' · lectura de tickets activada' : ' · lectura de tickets sin configurar (falta la clave de Gemini en la hoja)'}</div>` : ''}
+      <div class="field"><label for="enlace">${cfg.api ? 'Cambiar de hoja: pega otro enlace' : 'Pega aquí tu enlace para el móvil'}</label>
+        <input class="input" id="enlace" type="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…#api=…&token=…"></div>
+      <p class="help">Lo tienes en tu hoja: menú Finanzas → "2 · Ver mi enlace para el móvil".</p>
+      <button class="btn" data-act="connectlink">Conectar</button>
       ${UI.testMsg ? `<div class="status">${esc(UI.testMsg)}</div>` : ''}
-      ${cfg.api && !UI.testMsg ? `<div class="status">Lectura de tickets: ${Store.ia ? 'activada' : 'sin configurar (falta la clave de IA en Apps Script)'}</div>` : ''}
+      <details><summary class="help" style="cursor:pointer">Conectar a mano (URL y token)</summary>
+        <div class="stack" style="gap:10px;margin-top:10px">
+          <div class="field"><label for="api">URL de la API</label><input class="input" id="api" type="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(cfg.api)}"></div>
+          <div class="field"><label for="tok">Token</label><input class="input" id="tok" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cfg.token)}"></div>
+          <button class="btn sec2" data-act="connect">Guardar y probar</button>
+        </div></details>
       ${cfg.api ? `<button class="btn sec2" data-act="disconnect">Desconectar y volver al modo demo</button>` : ''}
     </section>
+    <section class="card">
+      <h2>Facturas para el asesor</h2>
+      <p class="note">Las facturas que subes con <b>+ → Subir factura</b> se guardan en tu Drive, en la carpeta <b>Finanzas · Facturas</b>, separadas por trimestre. Aquí preparas el resumen para enviárselo al asesor.</p>
+      <div class="pnav"><button class="icon-btn" data-act="expmove" data-arg="-1" aria-label="Trimestre anterior">${icon('chevL', 20)}</button>
+        <div class="pnav-l">${E.t}.º trimestre ${E.anio}</div>
+        <button class="icon-btn" data-act="expmove" data-arg="1" aria-label="Trimestre siguiente">${icon('chevR', 20)}</button></div>
+      <div class="small muted" style="text-align:center">${nFact} factura${nFact === 1 ? '' : 's'} de ${esc(nombre(cfg.perfil))} en este trimestre</div>
+      <button class="btn" data-act="exportar" ${UI.exporting ? 'disabled' : ''}>${UI.exporting ? 'Preparando…' : 'Preparar resumen del trimestre'}</button>
+      ${UI.expRes ? `<div class="box" style="padding:12px 14px;gap:8px"><b style="font-size:14px">Resumen listo (${UI.expRes.n} factura${UI.expRes.n === 1 ? '' : 's'})</b>
+        <a class="link" href="${esc(UI.expRes.url)}" target="_blank" rel="noopener">Abrir el resumen</a>
+        <a class="link" href="${esc(UI.expRes.carpeta)}" target="_blank" rel="noopener">Abrir la carpeta con las facturas</a>
+        <p class="help">Para enviarlo: en Drive, comparte la carpeta del trimestre con tu asesor (Compartir → su email).</p></div>` : ''}
+    </section>
+    <section class="card"><h2>${solo() ? 'Tu perfil' : 'Perfil 1'}</h2>${prof('maik')}</section>
+    ${solo() ? '' : `<section class="card"><h2>Perfil 2</h2>${prof('consu')}</section>`}
     <section class="card">
       <h2>Datos</h2>
       <button class="btn sec2" data-act="csv">Exportar movimientos (CSV)</button>
       ${Store.isDemo() ? `<button class="btn danger" data-act="resetdemo">Regenerar datos de ejemplo</button>` : ''}
     </section>
     <section class="card">
-      <h2>Instalar en el iPhone</h2>
-      <p class="note">Abre esta página en <b>Safari</b> → botón <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>. Se abrirá a pantalla completa, como una app.</p>
+      <h2>Instalar en el móvil</h2>
+      <p class="note"><b>iPhone:</b> abre esta página en Safari → <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>.<br><b>Android:</b> abre en Chrome → menú ⋮ → <b>Añadir a pantalla de inicio</b>.<br>Si al abrirla desde el icono te pide el enlace, vuelve a pegarlo aquí arriba.</p>
     </section>
-    <p class="note" style="text-align:center">Finanzas · v0.3</p>
+    <p class="note" style="text-align:center">Finanzas · v0.4</p>
   </div>`;
 }
 
@@ -958,7 +1019,7 @@ function vPendientes() {
         <button class="row" style="border:0;padding:0" data-act="edit" data-arg="${esc(m.id)}">
           <div class="tile ${m.tipo === 'ingreso' ? 't-good' : 't-warn'}">${icon(cat ? cat.i : 'dots', 20)}</div>
           <div class="mid"><div class="tt">${esc(m.nota || (cat ? cat.n : 'Movimiento'))}</div>
-            <div class="sub">${String(m.id).startsWith('fx-') ? 'Gasto fijo · ' : ''}${cat ? esc(cat.n) : '<b>Sin categoría</b>'}${m.etiqueta ? ' · ' + ETQ[m.etiqueta] : ''}${m.comun ? ' · común' : ''} · ${relDate(m.fecha)}</div></div>
+            <div class="sub">${String(m.id).startsWith('fx-') ? 'Gasto fijo · ' : ''}${m.adjunto ? 'Factura · ' : ''}${cat ? esc(cat.n) : '<b>Sin categoría</b>'}${m.etiqueta ? ' · ' + ETQ[m.etiqueta] : ''}${m.comun ? ' · común' : ''} · ${relDate(m.fecha)}</div></div>
           <div class="rt"><div class="am num ${m.tipo === 'ingreso' ? 'good' : ''}">${m.tipo === 'ingreso' ? '+' : '−'}${eur(m.importe)}</div>${dup ? '<span class="badge">¿Repetido?</span>' : ''}</div>
         </button>
         <div class="acts">
@@ -1153,7 +1214,7 @@ function renderFijo() {
         <div class="field"><label for="f-dia">Día</label><input class="input" id="f-dia" type="number" inputmode="numeric" min="1" max="31" value="${esc(f.dia)}"></div>
       </div>
       <div class="box">
-        <div class="line"><label for="f-comun">Gasto común con ${esc(nombre(otro(f.perfil)))}</label><input id="f-comun" type="checkbox" ${f.comun ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent-btn)"></div>
+        <div class="line" ${solo() ? 'hidden' : ''}><label for="f-comun">Gasto común con ${esc(nombre(otro(f.perfil)))}</label><input id="f-comun" type="checkbox" ${f.comun ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent-btn)"></div>
         ${f.comun ? `<div class="line"><span>Lo paga</span><div class="pill">${PERFILES.map(q => `<button class="${f.perfil === q ? 'on' : ''}" data-act="fpag" data-arg="${q}">${esc(nombre(q))}</button>`).join('')}</div></div>
         <div class="line"><label for="f-rep">Parte de ${esc(nombre(f.perfil))} (%)</label><input id="f-rep" class="pct" type="number" inputmode="numeric" min="0" max="100" value="${f.reparto}"></div>` : ''}
         ${f.editing ? `<div class="line"><label for="f-activo">Activo</label><input id="f-activo" type="checkbox" ${f.activo !== false ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent-btn)"></div>` : ''}
@@ -1185,7 +1246,7 @@ function renderNav() {
   document.getElementById('nav').innerHTML =
     it('inicio', 'home', 'Inicio') + it('analisis', 'pie', 'Análisis') +
     `<button class="add" data-act="add" aria-label="Añadir movimiento">${icon('plus', 26)}</button>` +
-    it('comun', 'users', 'Común') + it('patrimonio', 'chart', 'Patrimonio');
+    (solo() ? '' : it('comun', 'users', 'Común')) + it('patrimonio', 'chart', 'Patrimonio');
 }
 function render() {
   document.getElementById('app').innerHTML = (VIEWS[UI.view] || vInicio)();
@@ -1203,7 +1264,7 @@ function usageOrder(p, tipo) {
 function openSheet(m) {
   if (m) {
     F = { id: m.id, tipo: m.tipo, amt: String(m.importe).replace('.', ','), categoria: m.categoria, etiqueta: m.etiqueta || '', comun: !!m.comun,
-      reparto: m.reparto == null ? 50 : m.reparto, perfil: m.perfil, fecha: m.fecha, nota: m.nota || '', creado: m.creado, estado: m.estado || '', editing: true, etTouched: m.estado === 'pendiente' ? !!m.etiqueta : true, comunTouched: m.estado !== 'pendiente', orig: { ...m } };
+      reparto: m.reparto == null ? 50 : m.reparto, perfil: m.perfil, fecha: m.fecha, nota: m.nota || '', creado: m.creado, estado: m.estado || '', adjunto: m.adjunto || '', factura: m.factura || null, editing: true, etTouched: m.estado === 'pendiente' ? !!m.etiqueta : true, comunTouched: m.estado !== 'pendiente', orig: { ...m } };
   } else {
     F = { id: null, tipo: 'gasto', amt: '0', categoria: null, etiqueta: '', comun: false, reparto: 50, perfil: cfg.perfil, fecha: todayStr(), nota: '', editing: false, etTouched: false, comunTouched: false };
     F.order = usageOrder(cfg.perfil, 'gasto');
@@ -1242,12 +1303,14 @@ function renderSheet() {
       <p class="note">Las liquidaciones se crean desde la pestaña Común. Si fue un error, puedes eliminarla.</p>`;
   } else {
     body = `
-      ${!F.editing ? `<label class="scan"><input type="file" id="scanfile" accept="image/*" aria-label="Escanear ticket o captura del banco"><span class="ic">${icon('camera', 22)}</span><span><b>Escanear ticket o captura del banco</b><small>Se leen solos y quedan pendientes de revisar</small></span></label>` : ''}
+      ${!F.editing ? `<label class="scan"><input type="file" id="scanfile" accept="image/*" aria-label="Escanear ticket o captura del banco"><span class="ic">${icon('camera', 22)}</span><span><b>Escanear ticket o captura del banco</b><small>Se leen solos y quedan pendientes de revisar</small></span></label>
+      <label class="scan"><input type="file" id="scanfact" accept="image/*,application/pdf" aria-label="Subir factura"><span class="ic">${icon('receipt', 22)}</span><span><b>Subir factura (foto o PDF)</b><small>Se guarda en tu Drive para el asesor</small></span></label>` : ''}
+      ${F.adjunto ? facturaBox(F) : ''}
       <div class="cats" role="group" aria-label="Categoría">${F.order.map(c =>
         `<button class="cat ${F.categoria === c.id ? 'on' : ''}" data-act="cat" data-arg="${c.id}" aria-pressed="${F.categoria === c.id}">${icon(c.i, 22)}<span>${esc(c.n)}</span></button>`).join('')}</div>
       ${g && !inv ? `<div class="etq" role="group" aria-label="Etiqueta">${Object.entries(ETQ).map(([k, l]) =>
         `<button class="${F.etiqueta === k ? 'on' : ''} ${k !== 'necesario' ? 'w' : ''}" data-act="etq" data-arg="${k}" aria-pressed="${F.etiqueta === k}">${l}</button>`).join('')}</div>
-      <div class="box">
+      <div class="box" ${solo() ? 'hidden' : ''}>
         <div class="line"><label for="comun">Gasto común con ${esc(nombre(otro(F.perfil)))}</label><input id="comun" type="checkbox" data-act="comun" ${F.comun ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent-btn)"></div>
         ${F.comun ? `<div class="line"><span>Pagó</span><div class="pill">${PERFILES.map(p => `<button class="${F.perfil === p ? 'on' : ''}" data-act="pagador" data-arg="${p}">${esc(nombre(p))}</button>`).join('')}</div></div>
         <div class="line"><label for="rep">Parte de ${esc(nombre(F.perfil))} (%)</label><input id="rep" class="pct" type="number" inputmode="numeric" min="0" max="100" value="${F.reparto}"></div>` : ''}
@@ -1294,7 +1357,8 @@ function saveSheet() {
     importe: Math.round(amtValue() * 100) / 100, categoria: F.categoria,
     etiqueta: g && F.categoria !== 'inversion' ? F.etiqueta : '', comun: g && F.comun && F.categoria !== 'inversion',
     reparto: g && F.comun ? Math.max(0, Math.min(100, Number(F.reparto) || 0)) : 50,
-    nota: (F.nota || '').trim(), creado: F.creado || new Date().toISOString(), estado: ''
+    nota: (F.nota || '').trim(), creado: F.creado || new Date().toISOString(), estado: '',
+    adjunto: F.adjunto || '', factura: F.factura || null
   };
   const wasPend = F.estado === 'pendiente';
   const orig = F.orig;
@@ -1323,13 +1387,31 @@ function resizeImage(file, max) {
     img.src = url;
   });
 }
-async function handleScan(file) {
-  if (Store.isDemo()) { toast('Para leer tickets, conecta la Sheet en Ajustes'); return; }
+function fileBase64(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve({ data: String(fr.result).split(',')[1], mime: file.type || 'application/pdf' });
+    fr.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    fr.readAsDataURL(file);
+  });
+}
+function facturaBox(f) {
+  const x = f.factura || {};
+  const det = [x.proveedor, x.nif, x.numero ? 'nº ' + x.numero : ''].filter(Boolean).map(esc).join(' · ');
+  const imp = [x.base != null ? 'base ' + eur(x.base) : '', x.iva != null ? 'IVA ' + eur(x.iva) + (x.iva_pct != null ? ' (' + num(x.iva_pct, 0) + ' %)' : '') : '', x.irpf ? 'IRPF ' + eur(x.irpf) : ''].filter(Boolean).join(' · ');
+  return `<div class="box" style="padding:12px 14px;gap:4px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:14px">Factura guardada</b><a class="link" href="${esc(f.adjunto)}" target="_blank" rel="noopener">Ver archivo</a></div>
+    ${det ? `<div class="small">${det}</div>` : ''}${imp ? `<div class="small muted">${imp}</div>` : ''}</div>`;
+}
+async function handleScan(file, esFactura) {
+  if (Store.isDemo()) { toast('Para leer tickets y facturas, conecta tu hoja en Ajustes'); return; }
   const perfil = F.perfil;
-  document.querySelector('.sheet').innerHTML = `<div class="sh-top"><span></span></div><div class="scanning"><div class="spin" aria-hidden="true"></div><div><b style="color:var(--ink);font-size:16px">Leyendo la imagen…</b><br>Suele tardar entre 5 y 15 segundos.</div></div>`;
+  document.querySelector('.sheet').innerHTML = `<div class="sh-top"><span></span></div><div class="scanning"><div class="spin" aria-hidden="true"></div><div><b style="color:var(--ink);font-size:16px">${esFactura ? 'Leyendo la factura…' : 'Leyendo la imagen…'}</b><br>${esFactura ? 'Se guardará en tu Drive, en la carpeta del trimestre.' : 'Suele tardar entre 5 y 15 segundos.'}</div></div>`;
   try {
-    const img = await resizeImage(file);
-    const r = await api('POST', { action: 'scan', image: img.data, mime: img.mime }, null, 90000);
+    const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+    if (pdf && file.size > 9e6) throw new Error('El PDF pesa demasiado (máx. 9 MB)');
+    const img = pdf ? await fileBase64(file) : await resizeImage(file, esFactura ? 2600 : 2200);
+    if (pdf) img.mime = 'application/pdf';
+    const r = await api('POST', { action: 'scan', image: img.data, mime: img.mime, factura: !!esFactura, perfil }, null, 120000);
     const items = r.items || [];
     if (!items.length) { toast('No he encontrado importes en la imagen'); renderSheet(); return; }
     const hoy = todayStr(), ahora = new Date().toISOString();
@@ -1341,7 +1423,7 @@ async function handleScan(file) {
       Store.commit({ op: 'upsert', mov: {
         id: uid(), fecha: it.fecha && it.fecha <= hoy ? it.fecha : hoy, perfil, tipo: ingreso ? 'ingreso' : 'gasto',
         importe: it.importe, categoria: cat, etiqueta: ingreso || cat === 'inversion' ? '' : (it.etiqueta || (CAT_BY[cat] ? CAT_BY[cat].e : '') || ''),
-        comun: false, reparto: 50, nota: it.comercio || '', creado: ahora, estado: 'pendiente' } });
+        comun: false, reparto: 50, nota: it.comercio || '', creado: ahora, estado: 'pendiente', adjunto: it.adjunto || '', factura: it.factura || null } });
     });
     closeSheet(); UI.view = 'pendientes'; render(); window.scrollTo(0, 0);
     toast(`${items.length} leído${items.length > 1 ? 's' : ''}. Revísalo${items.length > 1 ? 's' : ''}.`);
@@ -1538,6 +1620,10 @@ const ACT = {
     UI.refreshing = false; render();
     toast(Store.status === 'err' ? 'No se pudo actualizar: ' + Store.error : 'Precios actualizados');
   },
+  async copylink() {
+    try { await navigator.clipboard.writeText(UI.recienEnlazado); toast('Enlace copiado'); }
+    catch (e) { toast('No se pudo copiar; cópialo desde tu hoja'); }
+  },
   liq() { UI.confirmLiq = true; render(); },
   liqno() { UI.confirmLiq = false; render(); },
   liqok() {
@@ -1556,14 +1642,34 @@ const ACT = {
     try {
       await api('GET', null, '&action=ping');
       saveCfg();
-      if (old.api !== url) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); Store.queue = []; LS.set('fin_queue', []); }
+      if (old.api !== url) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); Store.queue = []; LS.set('fin_queue', []); serverConf = null; }
       await Store.load();
-      UI.testMsg = `Conectado. ${Store.movs.length} movimientos en la Sheet. Lectura de tickets: ${Store.ia ? 'activada' : 'sin configurar'}.`;
+      UI.testMsg = `Conectado ✓ ${Store.movs.length} movimientos en tu hoja.`;
     } catch (e) {
       cfg.api = old.api; cfg.token = old.token;
       UI.testMsg = 'No se pudo conectar: ' + e.message;
     }
     render();
+  },
+  async connectlink() {
+    const L = parseEnlace(document.getElementById('enlace').value);
+    if (!L) { UI.testMsg = 'Ese enlace no es válido. Cópialo entero desde tu hoja (menú Finanzas → 2).'; render(); return; }
+    document.getElementById('api').value = L.api; document.getElementById('tok').value = L.token;
+    await ACT.connect();
+  },
+  expmove(d) {
+    const E = UI.exp; let t = E.t + Number(d), a = E.anio;
+    if (t < 1) { t = 4; a--; } if (t > 4) { t = 1; a++; }
+    UI.exp = { anio: a, t }; UI.expRes = null; render();
+  },
+  async exportar() {
+    if (Store.isDemo()) { toast('Conecta tu hoja para preparar el resumen'); return; }
+    UI.exporting = true; UI.expRes = null; render();
+    try {
+      const r = await api('POST', { action: 'exportar', perfil: cfg.perfil, anio: UI.exp.anio, trimestre: UI.exp.t }, null, 90000);
+      UI.expRes = { url: r.url, carpeta: r.carpeta, n: r.n };
+    } catch (e) { toast('No se pudo preparar: ' + e.message); }
+    UI.exporting = false; render();
   },
   async disconnect() {
     cfg.api = ''; cfg.token = ''; saveCfg();
@@ -1594,7 +1700,8 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const el = e.target;
   if (el.dataset.act === 'comun') { ACT.comun(null, el); return; }
-  if (el.id === 'scanfile' && F && el.files && el.files[0]) { handleScan(el.files[0]); return; }
+  if (el.id === 'scanfile' && F && el.files && el.files[0]) { handleScan(el.files[0], false); return; }
+  if (el.id === 'scanfact' && F && el.files && el.files[0]) { handleScan(el.files[0], true); return; }
   if (el.id === 'f-comun' && FF) { readFF(); renderFijo(); return; }
   if (el.id === 'fecha' && F) { if (/^\d{4}-\d{2}-\d{2}$/.test(el.value)) F.fecha = el.value; renderSheet(); return; }
   if (el.id === 'rep' && F) { F.reparto = Math.max(0, Math.min(100, Number(el.value) || 0)); return; }
@@ -1711,8 +1818,19 @@ function seedFijos() {
 }
 
 /* ================= Arranque ================= */
+(function leerEnlace() {
+  const L = parseEnlace(location.href);
+  if (!L) return;
+  if (L.api !== cfg.api) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); Store.queue = []; LS.set('fin_queue', []); }
+  cfg.api = L.api; cfg.token = L.token; saveCfg();
+  UI.recienEnlazado = location.href;
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+})();
 render();
-Store.load().then(render);
+Store.load().then(() => {
+  render();
+  if (UI.recienEnlazado) toast(Store.status === 'err' ? 'No se pudo conectar: ' + Store.error : 'App conectada a tu hoja ✓');
+});
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
