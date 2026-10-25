@@ -230,6 +230,21 @@ nav.tab .add{width:56px;height:56px;border-radius:18px;background:var(--accent-b
 .minirow .v{font-size:20px;font-weight:800}
 .help{font-size:12px;color:var(--muted);line-height:1.45;margin:0}
 .pill.wrap{flex-wrap:wrap;border-radius:16px}
+/* v0.3: fijos */
+.cal{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;align-items:end;height:150px}
+.cal button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;padding:0;min-width:0;border-radius:8px}
+.cal .stk{width:70%;max-width:22px;display:flex;flex-direction:column-reverse;border-radius:5px;overflow:hidden;background:var(--track);min-height:3px}
+.cal .stk i{display:block}
+.cal span{font-size:10.5px;color:var(--muted);line-height:1.1;text-align:center}
+.cal button.on{background:var(--accent-soft)}
+.cal button.on span{color:var(--ink);font-weight:800}
+.chip2{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;background:var(--track);color:var(--muted)}
+.chip2.ok{background:var(--good-soft);color:var(--good)}
+.chip2.rv{background:var(--warn-soft);color:var(--warn)}
+.daytile{width:40px;height:40px;border-radius:12px;background:var(--track);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;line-height:1}
+.daytile b{font-size:15px}
+.daytile small{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase}
+select.input{appearance:none;-webkit-appearance:none;background-image:none}
 </style>
 </head>
 <body>
@@ -384,13 +399,13 @@ const otro = p => (p === 'maik' ? 'consu' : 'maik');
 
 /* ================= Datos ================= */
 function applyOp(st, op) {
-  const pos = op.op === 'upsertPos' || op.op === 'deletePos';
-  const arr = pos ? st.cartera : st.movs;
-  if (op.op === 'upsert' || op.op === 'upsertPos') {
-    const item = op.mov || op.pos;
+  const kind = /Pos$/.test(op.op) ? 'cartera' : /Fijo$/.test(op.op) ? 'fijos' : 'movs';
+  const arr = st[kind];
+  if (/^upsert/.test(op.op)) {
+    const item = op.mov || op.pos || op.fijo;
     const i = arr.findIndex(m => m.id === item.id);
     if (i >= 0) arr[i] = item; else arr.push(item);
-  } else if (op.op === 'delete' || op.op === 'deletePos') {
+  } else if (/^delete/.test(op.op)) {
     const i = arr.findIndex(m => m.id === op.id);
     if (i >= 0) arr.splice(i, 1);
   }
@@ -422,27 +437,30 @@ async function api(method, body, extra, timeoutMs) {
 }
 
 const Store = {
-  movs: [], cartera: [], queue: LS.get('fin_queue', []), status: 'demo', error: '', ver: 0,
+  movs: [], cartera: [], fijos: [], queue: LS.get('fin_queue', []), status: 'demo', error: '', ver: 0,
   flushing: false, needReload: false, ia: false, pricesAt: null,
   isDemo() { return !cfg.api; },
   touch() { this.ver++; memo.clear(); },
   saveLocal() {
-    if (this.isDemo()) { LS.set('fin_demo', this.movs); LS.set('fin_demo_cartera', this.cartera); }
-    else { LS.set('fin_cache', this.movs); LS.set('fin_cache_cartera', this.cartera); }
+    if (this.isDemo()) { LS.set('fin_demo', this.movs); LS.set('fin_demo_cartera', this.cartera); LS.set('fin_demo_fijos', this.fijos); }
+    else { LS.set('fin_cache', this.movs); LS.set('fin_cache_cartera', this.cartera); LS.set('fin_cache_fijos', this.fijos); }
   },
-  async load() {
+  async load(extra) {
     if (this.isDemo()) {
       this.movs = LS.get('fin_demo', null) || seedDemo();
       this.cartera = LS.get('fin_demo_cartera', null) || seedCartera();
+      this.fijos = LS.get('fin_demo_fijos', null) || seedFijos();
       this.saveLocal();
-      this.status = 'demo'; this.pricesAt = null; this.touch(); return;
+      this.status = 'demo'; this.pricesAt = null; this.touch();
+      generarFijos(); return;
     }
-    this.movs = LS.get('fin_cache', []); this.cartera = LS.get('fin_cache_cartera', []); this.touch();
+    this.movs = LS.get('fin_cache', []); this.cartera = LS.get('fin_cache_cartera', []); this.fijos = LS.get('fin_cache_fijos', []); this.touch();
     try {
       await this.flush();
-      const r = await api('GET');
+      const r = await api('GET', null, extra, extra ? 90000 : 30000);
       this.movs = r.movs || [];
       this.cartera = r.cartera || [];
+      this.fijos = r.fijos || [];
       this.ia = !!r.ia;
       this.queue.forEach(op => applyOp(this, op));
       this.saveLocal();
@@ -452,6 +470,7 @@ const Store = {
       this.status = 'err'; this.error = e.message;
     }
     this.touch();
+    if (this.status !== 'err') generarFijos();
   },
   commit(op) {
     applyOp(this, op); this.touch(); this.saveLocal();
@@ -577,8 +596,57 @@ function owedToMaik() {
 }
 const sortDesc = (a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : (b.creado || '').localeCompare(a.creado || ''));
 
+/* ---------- Gastos fijos ---------- */
+const FREQ = { mensual: { n: 'Mensual', k: 1 }, trimestral: { n: 'Trimestral', k: 3 }, semestral: { n: 'Semestral', k: 6 }, anual: { n: 'Anual', k: 12 } };
+const freqK = f => (FREQ[f.frecuencia] || FREQ.mensual).k;
+const vecesAno = f => 12 / freqK(f);
+function venceEn(f, ym) {
+  const [y, m] = ym.split('-').map(Number), k = freqK(f);
+  if ((((m - Number(f.mes || 1)) % k) + k) % k !== 0) return null;
+  return `${ym}-${pad(Math.min(Number(f.dia) || 1, new Date(y, m, 0).getDate()))}`;
+}
+function shareFijo(f, p) {
+  if (!f.comun) return f.perfil === p ? f.importe : 0;
+  const r = (f.reparto == null ? 50 : f.reparto) / 100;
+  return f.perfil === p ? f.importe * r : f.importe * (1 - r);
+}
+const fijosDe = p => Store.fijos.filter(f => f.activo !== false && (f.perfil === p || f.comun));
+const fijoMovId = (f, ym) => `fx-${f.id}-${ym}`;
+function fijoEstado(f, ym) {
+  const m = Store.movs.find(x => x.id === fijoMovId(f, ym));
+  return m ? (isPend(m) ? 'revisar' : 'pagado') : null;
+}
+function generadoInicial(f) {
+  const cur = curYM(), d = venceEn(f, cur);
+  return d && d <= todayStr() ? cur : addMonths(cur, -1);
+}
+// Crea como "por revisar" cada pago fijo que ya ha vencido y aún no existe.
+function generarFijos() {
+  const hoy = todayStr(), cur = curYM();
+  let n = 0;
+  for (const f of Store.fijos.slice()) {
+    if (f.activo === false || !(f.importe > 0)) continue;
+    let g = /^\d{4}-\d{2}$/.test(f.generado) ? f.generado : generadoInicial(f);
+    const g0 = f.generado;
+    for (let m = addMonths(g, 1), i = 0; m <= cur && i < 24; m = addMonths(m, 1), i++) {
+      const d = venceEn(f, m);
+      if (d && d > hoy) break;
+      if (d && !Store.movs.some(x => x.id === fijoMovId(f, m))) {
+        const c = CAT_BY[f.categoria];
+        Store.commit({ op: 'upsert', mov: { id: fijoMovId(f, m), fecha: d, perfil: f.perfil, tipo: 'gasto', importe: f.importe,
+          categoria: f.categoria, etiqueta: f.categoria === 'inversion' ? '' : (c && c.e) || 'necesario', comun: !!f.comun,
+          reparto: f.reparto == null ? 50 : f.reparto, nota: f.nombre, creado: new Date().toISOString(), estado: 'pendiente' } });
+        n++;
+      }
+      g = m;
+    }
+    if (g !== g0) Store.commit({ op: 'upsertFijo', fijo: { ...f, generado: g } });
+  }
+  return n;
+}
+
 /* ================= Estado de UI ================= */
-const UI = { view: 'inicio', month: curYM(), year: new Date().getFullYear(), anal: 'mes', filtro: 'todos', confirmLiq: false, testMsg: '' };
+const UI = { fijoMes: null, refreshing: false, view: 'inicio', month: curYM(), year: new Date().getFullYear(), anal: 'mes', filtro: 'todos', confirmLiq: false, testMsg: '' };
 
 /* ================= Vistas ================= */
 function syncBadge() {
@@ -700,6 +768,7 @@ function vInicio() {
     </section>
     ${pendBar(p)}
     ${prescCard}
+    ${fijosCard(p)}
     <button class="minirow" data-act="go" data-arg="patrimonio"><div><div class="small muted">Patrimonio total</div><div class="v num">${eur(patrimonio(p).total, 0)}</div></div><span class="link">Ver ${icon('chevR', 16)}</span></button>
     <div class="sec"><h2>Últimos movimientos</h2><button class="link" data-act="go" data-arg="movs">Ver todo</button></div>
     ${recent.length ? `<div class="list">${recent.map(m => movRow(m, p)).join('')}</div>` : `<div class="list"><div class="empty">Aún no hay movimientos. Pulsa + para añadir el primero.</div></div>`}
@@ -860,7 +929,7 @@ function vAjustes() {
       <h2>Instalar en el iPhone</h2>
       <p class="note">Abre esta página en <b>Safari</b> → botón <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>. Se abrirá a pantalla completa, como una app.</p>
     </section>
-    <p class="note" style="text-align:center">Finanzas · v0.2</p>
+    <p class="note" style="text-align:center">Finanzas · v0.3</p>
   </div>`;
 }
 
@@ -869,7 +938,7 @@ const pendientesDe = p => Store.movs.filter(m => isPend(m) && m.perfil === p).so
 function pendBar(p) {
   const n = pendientesDe(p).length;
   if (!n) return '';
-  return `<button class="pendbar" data-act="go" data-arg="pendientes"><div><b>${n} movimiento${n > 1 ? 's' : ''} por revisar</b><div class="small">Leídos de tus fotos. No cuentan hasta que los aceptes.</div></div><span>Revisar ${icon('chevR', 16)}</span></button>`;
+  return `<button class="pendbar" data-act="go" data-arg="pendientes"><div><b>${n} movimiento${n > 1 ? 's' : ''} por revisar</b><div class="small">De tus fotos o de tus gastos fijos. No cuentan hasta que los aceptes.</div></div><span>Revisar ${icon('chevR', 16)}</span></button>`;
 }
 function dayDiff(a, b) { return Math.round((parseDate(a) - parseDate(b)) / 864e5); }
 function posibleDuplicado(m) {
@@ -889,7 +958,7 @@ function vPendientes() {
         <button class="row" style="border:0;padding:0" data-act="edit" data-arg="${esc(m.id)}">
           <div class="tile ${m.tipo === 'ingreso' ? 't-good' : 't-warn'}">${icon(cat ? cat.i : 'dots', 20)}</div>
           <div class="mid"><div class="tt">${esc(m.nota || (cat ? cat.n : 'Movimiento'))}</div>
-            <div class="sub">${cat ? esc(cat.n) : '<b>Sin categoría</b>'}${m.etiqueta ? ' · ' + ETQ[m.etiqueta] : ''} · ${relDate(m.fecha)}</div></div>
+            <div class="sub">${String(m.id).startsWith('fx-') ? 'Gasto fijo · ' : ''}${cat ? esc(cat.n) : '<b>Sin categoría</b>'}${m.etiqueta ? ' · ' + ETQ[m.etiqueta] : ''}${m.comun ? ' · común' : ''} · ${relDate(m.fecha)}</div></div>
           <div class="rt"><div class="am num ${m.tipo === 'ingreso' ? 'good' : ''}">${m.tipo === 'ingreso' ? '+' : '−'}${eur(m.importe)}</div>${dup ? '<span class="badge">¿Repetido?</span>' : ''}</div>
         </button>
         <div class="acts">
@@ -903,6 +972,11 @@ function vPendientes() {
 }
 
 /* ---------- Patrimonio ---------- */
+function haceTxt(iso) {
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (!isFinite(m)) return '';
+  return m < 1 ? 'ahora mismo' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} días`;
+}
 function fmtUnits(u) { u = Number(u) || 0; return Number.isInteger(u) ? num(u, 0) : num(u, 6).replace(/(,\d*?)0+$/, '$1').replace(/,$/, ''); }
 function posRow(x) {
   const pr = precioPos(x), val = valorPos(x);
@@ -913,7 +987,7 @@ function posRow(x) {
   return `<button class="row" data-act="editpos" data-arg="${esc(x.id)}">
     <div class="tile ${x.tipo === 'ahorro' ? 't-good' : 't-accent'}">${icon(ICON_ACTIVO[x.tipo] || 'coin', 20)}</div>
     <div class="mid"><div class="tt">${esc(x.nombre || x.ticker || 'Sin nombre')}</div><div class="sub">${sub}</div></div>
-    <div class="rt"><div class="am num">${eur(val, 0)}</div>${gain != null ? `<div class="sub ${gain >= 0 ? 'good' : 'bad'}" style="font-weight:700">${eurS(gain, 0)} · ${pctS(gain / Number(x.coste))}</div>` : (pr == null && x.tipo !== 'ahorro' ? '<div class="sub"><b>sin precio</b></div>' : '')}</div>
+    <div class="rt"><div class="am num">${eur(val, 0)}</div>${gain != null ? `<div class="sub ${gain >= 0 ? 'good' : 'bad'}" style="font-weight:700">${eurS(gain, 0)} · ${pctS(gain / Number(x.coste))}</div>` : (pr == null && x.tipo !== 'ahorro' ? '<div class="sub" style="color:var(--bad);font-weight:700">sin precio</div>' : '')}</div>
   </button>`;
 }
 function vPatrimonio() {
@@ -957,7 +1031,8 @@ function vPatrimonio() {
       <div class="legend">${tipos.map(([t, v]) => `<span><i class="sw" style="background:${COLOR_ACTIVO[t]}"></i>${TIPOS_ACTIVO[t]} ${Math.round(v / totInv * 100)} %</span>`).join('')}</div>
     </section>
     <div class="list">${P.invs.slice().sort((a, b) => valorPos(b) - valorPos(a)).map(posRow).join('')}</div>
-    <p class="help">${Store.isDemo() ? 'Precios de ejemplo.' : `Precios de Google Finance (pueden ir hasta 20 min por detrás)${ago != null ? `, leídos hace ${ago < 1 ? 'menos de 1 min' : ago + ' min'}` : ''}. Se refrescan cada vez que abres la app.`}${P.sinPrecio ? ` ${P.sinPrecio} sin precio: revisa el ticker o pon un precio manual.` : ''}</p>`
+    <p class="help">${Store.isDemo() ? 'Precios de ejemplo.' : 'Precios de Yahoo Finance y Coinbase. Se actualizan solos cada 30 min al abrir la app.'}${P.sinPrecio ? ` <b>${P.sinPrecio} sin precio</b>: tócala para ver el motivo.` : ''}</p>
+    ${Store.isDemo() ? '' : `<button class="btn sec2" data-act="refreshprices" ${UI.refreshing ? 'disabled' : ''}>${UI.refreshing ? 'Actualizando precios…' : 'Actualizar precios ahora'}</button>`}`
     : `<div class="list"><div class="empty">Añade tus acciones, ETF, cripto o plan de pensiones para ver su valor actualizado.</div></div>`}
 
     <div class="sec"><h2>Ahorro previo</h2><button class="link" data-act="addpos" data-arg="ahorro">+ Añadir</button></div>
@@ -966,7 +1041,145 @@ function vPatrimonio() {
   </div>`;
 }
 
-const VIEWS = { inicio: vInicio, analisis: vAnalisis, comun: vComun, movs: vMovs, ajustes: vAjustes, pendientes: vPendientes, patrimonio: vPatrimonio };
+/* ---------- Gastos fijos ---------- */
+function fijosCard(p) {
+  const fs = fijosDe(p);
+  if (!fs.length) return `<button class="minirow" data-act="go" data-arg="fijos"><div><div class="small muted">Gastos fijos</div><div style="font-size:15px;font-weight:700">Apunta seguros, impuestos y cuotas para preverlos</div></div><span class="link">${icon('chevR', 16)}</span></button>`;
+  const cur = curYM(), hoy = todayStr();
+  const mes = fs.map(f => ({ f, d: venceEn(f, cur) })).filter(x => x.d);
+  const totalMes = sum(mes.map(x => shareFijo(x.f, p)));
+  const prox = [];
+  for (let i = 0; i < 2; i++) { const m = addMonths(cur, i); fs.forEach(f => { const d = venceEn(f, m); if (d && d >= hoy) prox.push({ f, d }); }); }
+  prox.sort((a, b) => a.d.localeCompare(b.d));
+  const n = prox.find(x => x.f.frecuencia !== 'mensual') || prox[0];
+  return `<button class="minirow" data-act="go" data-arg="fijos" style="align-items:flex-start">
+    <div style="min-width:0"><div class="small muted">Gastos fijos de este mes</div><div class="v num">${eur(totalMes, 0)}</div>
+    ${n ? `<div class="small" style="margin-top:4px">Próximo: <b>${esc(n.f.nombre)}</b> · ${relDate(n.d) === 'hoy' ? 'hoy' : parseDate(n.d).getDate() + ' ' + MESES_C[parseDate(n.d).getMonth()].toLowerCase()} · ${eur(shareFijo(n.f, p), 0)}</div>` : ''}</div>
+    <span class="link">Ver ${icon('chevR', 16)}</span></button>`;
+}
+function fijoRow(f, p, ym) {
+  const d = ym ? venceEn(f, ym) : null;
+  const est = ym ? fijoEstado(f, ym) : null;
+  const when = f.frecuencia === 'mensual' ? `día ${f.dia}` : `${f.dia} ${MESES_C[f.mes - 1].toLowerCase()}${f.frecuencia !== 'anual' ? ' y cada ' + freqK(f) + ' meses' : ''}`;
+  const tile = d ? `<div class="daytile"><b>${parseDate(d).getDate()}</b><small>${MESES_C[parseDate(d).getMonth()]}</small></div>`
+    : `<div class="tile ${f.frecuencia === 'mensual' ? 't-accent' : 't-warn'}">${icon(CAT_BY[f.categoria] ? CAT_BY[f.categoria].i : 'receipt', 20)}</div>`;
+  return `<button class="row" data-act="editfijo" data-arg="${esc(f.id)}">${tile}
+    <div class="mid"><div class="tt">${esc(f.nombre)}</div><div class="sub">${FREQ[f.frecuencia].n} · ${when}${f.comun ? ' · común' : ''}${f.activo === false ? ' · <b>pausado</b>' : ''}</div></div>
+    <div class="rt"><div class="am num">${eur(shareFijo(f, p))}</div>${est === 'pagado' ? '<span class="chip2 ok">pagado</span>' : est === 'revisar' ? '<span class="chip2 rv">por revisar</span>' : (f.comun ? `<div class="sub">de ${eur(f.importe, 0)}</div>` : '')}</div></button>`;
+}
+function vFijos() {
+  const p = cfg.perfil, cur = curYM(), hoy = todayStr();
+  const fs = fijosDe(p), todos = Store.fijos.filter(f => f.perfil === p || f.comun);
+  const anual = sum(fs.map(f => shareFijo(f, p) * vecesAno(f)));
+  const mensuales = sum(fs.filter(f => f.frecuencia === 'mensual').map(f => shareFijo(f, p)));
+  const otros = anual - mensuales * 12;
+  const meses = Array.from({ length: 12 }, (_, i) => addMonths(cur, i));
+  const porMes = meses.map(m => {
+    const its = fs.filter(f => venceEn(f, m));
+    return { m, its, men: sum(its.filter(f => f.frecuencia === 'mensual').map(f => shareFijo(f, p))), otr: sum(its.filter(f => f.frecuencia !== 'mensual').map(f => shareFijo(f, p))) };
+  });
+  const max = Math.max(1, ...porMes.map(x => x.men + x.otr));
+  const sel = UI.fijoMes && meses.includes(UI.fijoMes) ? UI.fijoMes : cur;
+  const S = porMes.find(x => x.m === sel);
+  const grupos = ['mensual', 'trimestral', 'semestral', 'anual'].map(k => [k, todos.filter(f => f.frecuencia === k)]).filter(x => x[1].length);
+  return `${header()}
+  <div class="stack" style="margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-.6px">Gastos fijos</h1><button class="link" data-act="addfijo">+ Añadir</button></div>
+    ${demoBanner()}
+    ${fs.length ? `
+    <section class="card">
+      <div class="label">Te cuestan al año</div>
+      <div class="big num">${eur(anual, 0)}</div>
+      <div class="kpis">
+        <div class="kpi"><div class="small muted">Mensuales</div><div class="v num">${eur(mensuales, 0)}<span class="small muted">/mes</span></div></div>
+        <div class="kpi"><div class="small muted">Anuales y otros</div><div class="v num">${eur(otros, 0)}<span class="small muted">/año</span></div></div>
+      </div>
+      ${otros > 0 ? `<div class="banner" style="display:block"><b>Aparta ${eur(otros / 12, 0)} al mes</b> para que los pagos anuales no te pillen por sorpresa.</div>` : ''}
+    </section>
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2>Próximos 12 meses</h2>
+        <div class="legend"><span><i class="sw" style="background:var(--accent-btn)"></i>mensuales</span><span><i class="sw" style="background:var(--warn-bar)"></i>anuales y otros</span></div></div>
+      <div class="cal" role="group" aria-label="Calendario de pagos">${porMes.map(x => {
+        const [y, m] = x.m.split('-').map(Number), h = (x.men + x.otr) / max * 112;
+        return `<button class="${x.m === sel ? 'on' : ''}" data-act="fijomes" data-arg="${x.m}" aria-label="${MESES[m - 1]} ${y}: ${eur(x.men + x.otr, 0)}">
+          <div class="stk" style="height:${Math.max(3, h)}px"><i style="height:${x.men / (x.men + x.otr || 1) * 100}%;background:var(--accent-btn)"></i><i style="height:${x.otr / (x.men + x.otr || 1) * 100}%;background:var(--warn-bar)"></i></div>
+          <span>${MESES_C[m - 1].slice(0, 1)}${m === 1 || x.m === cur ? `<br>${String(y).slice(2)}` : ''}</span></button>`;
+      }).join('')}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px">
+        <h2 style="text-transform:capitalize">${esc(monthLabel(sel))}</h2><div class="num" style="font-weight:800">${eur(S.men + S.otr, 0)}</div></div>
+      ${S.its.length ? `<div style="display:flex;flex-direction:column;margin:-4px 0">${S.its.slice().sort((a, b) => venceEn(a, sel).localeCompare(venceEn(b, sel))).map(f => fijoRow(f, p, sel)).join('')}</div>` : '<div class="empty" style="padding:8px">Nada este mes.</div>'}
+    </section>` : `<div class="list"><div class="empty">Apunta lo que pagáis cada mes (alquiler, gimnasio, suscripciones) y cada año (seguros, IBI, impuesto del coche…). Verás un calendario con lo que viene, cuánto apartar al mes, y cada pago aparecerá solo en "Por revisar" el día que toque.</div></div>`}
+    ${grupos.map(([k, list]) => `<div class="sec"><h2>${FREQ[k].n}es</h2></div><div class="list">${list.map(f => fijoRow(f, p, null)).join('')}</div>`).join('').replace(/Mensuales<\/h2>/, 'Mensuales</h2>')}
+    ${fs.length ? '<p class="help">El día que vence cada pago se crea en "Por revisar" con su importe. Si ese mes cambia (la luz, por ejemplo), lo corriges antes de aceptarlo.</p>' : ''}
+  </div>`;
+}
+
+/* ---------- Hoja de gasto fijo ---------- */
+let FF = null;
+function openFijo(f) {
+  FF = f ? { ...f, importe: decStr(f.importe), editing: true, orig: { ...f } }
+    : { id: null, perfil: cfg.perfil, nombre: '', importe: '', categoria: 'otros', frecuencia: 'mensual', mes: new Date().getMonth() + 1, dia: 1, comun: false, reparto: 50, activo: true, editing: false };
+  renderFijo();
+  document.body.style.overflow = 'hidden';
+}
+function readFF() {
+  const v = id => { const el = document.getElementById(id); return el ? el : null; };
+  if (v('f-nombre')) FF.nombre = v('f-nombre').value.trim();
+  if (v('f-imp')) FF.importe = v('f-imp').value.trim();
+  if (v('f-cat')) FF.categoria = v('f-cat').value;
+  if (v('f-mes')) FF.mes = Number(v('f-mes').value);
+  if (v('f-dia')) FF.dia = Math.min(31, Math.max(1, Number(v('f-dia').value) || 1));
+  if (v('f-rep')) FF.reparto = Math.max(0, Math.min(100, Number(v('f-rep').value) || 0));
+  if (v('f-comun')) FF.comun = v('f-comun').checked;
+  if (v('f-activo')) FF.activo = v('f-activo').checked;
+}
+function renderFijo() {
+  const f = FF, men = f.frecuencia === 'mensual';
+  document.getElementById('sheet-root').innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="Gasto fijo">
+    <div class="sh-top">
+      <button class="icon-btn" data-act="close" aria-label="Cerrar">${icon('x', 20)}</button>
+      <div class="label">${f.editing ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}</div><span style="width:44px"></span>
+    </div>
+    <div class="sh-scroll">
+      <div class="field"><label for="f-nombre">Nombre</label><input class="input" id="f-nombre" value="${esc(f.nombre)}" placeholder="Seguro del coche, IBI, Netflix…" maxlength="60"></div>
+      <div class="grid2">
+        <div class="field"><label for="f-imp">Importe (€)</label><input class="input" id="f-imp" inputmode="decimal" value="${esc(f.importe)}" placeholder="0,00"></div>
+        <div class="field"><label for="f-cat">Categoría</label><select class="input" id="f-cat">${CATS.map(c => `<option value="${c.id}" ${f.categoria === c.id ? 'selected' : ''}>${esc(c.n)}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label>Cada cuánto</label><div class="pill wrap" role="group" aria-label="Frecuencia">${Object.entries(FREQ).map(([k, x]) =>
+        `<button class="${f.frecuencia === k ? 'on' : ''}" data-act="ffreq" data-arg="${k}">${x.n}</button>`).join('')}</div></div>
+      <div class="grid2">
+        ${men ? '' : `<div class="field"><label for="f-mes">${f.frecuencia === 'anual' ? 'Mes' : 'Primer mes'}</label><select class="input" id="f-mes">${MESES.map((m, i) => `<option value="${i + 1}" ${Number(f.mes) === i + 1 ? 'selected' : ''}>${m[0].toUpperCase() + m.slice(1)}</option>`).join('')}</select></div>`}
+        <div class="field"><label for="f-dia">Día</label><input class="input" id="f-dia" type="number" inputmode="numeric" min="1" max="31" value="${esc(f.dia)}"></div>
+      </div>
+      <div class="box">
+        <div class="line"><label for="f-comun">Gasto común con ${esc(nombre(otro(f.perfil)))}</label><input id="f-comun" type="checkbox" ${f.comun ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent-btn)"></div>
+        ${f.comun ? `<div class="line"><span>Lo paga</span><div class="pill">${PERFILES.map(q => `<button class="${f.perfil === q ? 'on' : ''}" data-act="fpag" data-arg="${q}">${esc(nombre(q))}</button>`).join('')}</div></div>
+        <div class="line"><label for="f-rep">Parte de ${esc(nombre(f.perfil))} (%)</label><input id="f-rep" class="pct" type="number" inputmode="numeric" min="0" max="100" value="${f.reparto}"></div>` : ''}
+        ${f.editing ? `<div class="line"><label for="f-activo">Activo</label><input id="f-activo" type="checkbox" ${f.activo !== false ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent-btn)"></div>` : ''}
+      </div>
+      <p class="help">El día que toque se creará en "Por revisar" para que lo confirmes. ${f.editing ? '' : 'Si este mes ya lo has pagado, no se volverá a crear.'}</p>
+      ${f.editing ? '<button class="btn danger" data-act="delfijo">Eliminar gasto fijo</button>' : ''}
+    </div>
+    <button class="save" data-act="savefijo">Guardar</button>
+  </div>`;
+}
+function saveFijo() {
+  readFF();
+  const imp = parseDec(FF.importe);
+  if (!FF.nombre) { toast('Ponle un nombre'); return; }
+  if (!(imp > 0)) { toast('Pon el importe'); return; }
+  const f = { id: FF.id || uid(), perfil: FF.perfil, nombre: FF.nombre, importe: Math.round(imp * 100) / 100, categoria: FF.categoria,
+    frecuencia: FF.frecuencia, mes: FF.frecuencia === 'mensual' ? 1 : Number(FF.mes) || 1, dia: Number(FF.dia) || 1,
+    comun: !!FF.comun, reparto: FF.comun ? Number(FF.reparto) : 50, activo: FF.activo !== false, generado: FF.generado || '' };
+  const o = FF.orig;
+  if (!o || o.frecuencia !== f.frecuencia || Number(o.mes) !== f.mes || Number(o.dia) !== f.dia || (o.activo === false && f.activo)) f.generado = generadoInicial(f);
+  Store.commit({ op: 'upsertFijo', fijo: f });
+  closeSheet(); generarFijos(); render();
+  toast('Gasto fijo guardado', o ? () => { Store.commit({ op: 'upsertFijo', fijo: o }); render(); } : () => { Store.commit({ op: 'deleteFijo', id: f.id }); render(); });
+}
+
+const VIEWS = { inicio: vInicio, analisis: vAnalisis, comun: vComun, movs: vMovs, ajustes: vAjustes, pendientes: vPendientes, patrimonio: vPatrimonio, fijos: vFijos };
 function renderNav() {
   const it = (v, ic, l) => `<button class="${UI.view === v ? 'on' : ''}" data-act="go" data-arg="${v}" ${UI.view === v ? 'aria-current="page"' : ''}>${icon(ic, 24)}${l}</button>`;
   document.getElementById('nav').innerHTML =
@@ -1000,7 +1213,7 @@ function openSheet(m) {
   document.body.style.overflow = 'hidden';
 }
 function closeSheet() {
-  F = null; PF = null;
+  F = null; PF = null; FF = null;
   document.getElementById('sheet-root').innerHTML = '';
   document.body.style.overflow = '';
 }
@@ -1166,8 +1379,8 @@ function readPF() {
 function renderPos() {
   const a = PF.tipo === 'ahorro';
   const help = {
-    accion: 'Formato de Google Finance, BOLSA:TICKER. Ej.: NASDAQ:NVDA, NYSE:KO, BME:SAN.',
-    etf: 'Ej.: NYSEARCA:VOO. Muchos ETF europeos no están en Google Finance: deja el ticker vacío y usa el precio manual.',
+    accion: 'Ticker de Yahoo Finance: NVDA, AAPL (EE. UU.), SAN.MC, ITX.MC (Madrid). También vale NASDAQ:NVDA.',
+    etf: 'Ej.: VOO (EE. UU.), IWDA.AS, VWCE.DE, CSPX.L. Si dudas, búscalo en finance.yahoo.com y copia el símbolo.',
     cripto: 'Solo el símbolo: BTC, ETH, SOL…',
     pension: 'Los planes no cotizan: deja el ticker vacío y pon el valor liquidativo como precio manual.',
     otro: 'Opcional.'
@@ -1191,7 +1404,8 @@ function renderPos() {
       </div>
       ${f('p-plat', 'Plataforma', PF.plataforma, 'placeholder="Revolut, Trade Republic…" maxlength="40"')}
       ${f('p-pman', 'Precio manual (€ por unidad, opcional)', PF.precio_manual, 'inputmode="decimal" placeholder="Solo si no hay ticker"')}
-      ${pr != null ? `<p class="help">Precio actual: <b>${eur(pr)}</b> · valor ${eur(valorPos(PF.orig))}</p>` : ''}`;
+      ${pr != null ? `<p class="help">Precio actual: <b>${eur(pr)}</b> · valor ${eur(valorPos(PF.orig))}${PF.orig.precio_manual == null && PF.orig.precio_fuente ? ` · ${esc(PF.orig.precio_fuente)}${PF.orig.precio_fecha ? ', ' + esc(haceTxt(PF.orig.precio_fecha)) : ''}` : ''}</p>`
+        : PF.editing && PF.orig.precio_error ? `<p class="help" style="color:var(--bad)"><b>Sin precio:</b> ${esc(PF.orig.precio_error)}</p>` : ''}`;
   document.getElementById('sheet-root').innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="${a ? 'Ahorro previo' : 'Inversión'}">
     <div class="sh-top">
       <button class="icon-btn" data-act="close" aria-label="Cerrar">${icon('x', 20)}</button>
@@ -1305,6 +1519,25 @@ const ACT = {
     closeSheet(); render();
     toast('Eliminado', () => { Store.commit({ op: 'upsertPos', pos: orig }); render(); });
   },
+  fijomes(m) { UI.fijoMes = m; render(); },
+  addfijo() { openFijo(null); },
+  editfijo(id) { const f = Store.fijos.find(x => x.id === id); if (f) openFijo(f); },
+  ffreq(k) { readFF(); FF.frecuencia = k; renderFijo(); },
+  fpag(q) { readFF(); FF.perfil = q; renderFijo(); },
+  savefijo() { saveFijo(); },
+  delfijo() {
+    const o = FF.orig;
+    Store.commit({ op: 'deleteFijo', id: FF.id });
+    closeSheet(); render();
+    toast('Gasto fijo eliminado', () => { Store.commit({ op: 'upsertFijo', fijo: o }); render(); });
+  },
+  async refreshprices() {
+    if (Store.isDemo()) { toast('En modo demo los precios son de ejemplo'); return; }
+    UI.refreshing = true; render();
+    await Store.load('&refresh=1');
+    UI.refreshing = false; render();
+    toast(Store.status === 'err' ? 'No se pudo actualizar: ' + Store.error : 'Precios actualizados');
+  },
   liq() { UI.confirmLiq = true; render(); },
   liqno() { UI.confirmLiq = false; render(); },
   liqok() {
@@ -1323,7 +1556,7 @@ const ACT = {
     try {
       await api('GET', null, '&action=ping');
       saveCfg();
-      if (old.api !== url) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); Store.queue = []; LS.set('fin_queue', []); }
+      if (old.api !== url) { LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); Store.queue = []; LS.set('fin_queue', []); }
       await Store.load();
       UI.testMsg = `Conectado. ${Store.movs.length} movimientos en la Sheet. Lectura de tickets: ${Store.ia ? 'activada' : 'sin configurar'}.`;
     } catch (e) {
@@ -1334,11 +1567,11 @@ const ACT = {
   },
   async disconnect() {
     cfg.api = ''; cfg.token = ''; saveCfg();
-    LS.del('fin_cache'); LS.del('fin_cache_cartera'); Store.queue = []; LS.set('fin_queue', []);
+    LS.del('fin_cache'); LS.del('fin_cache_cartera'); LS.del('fin_cache_fijos'); Store.queue = []; LS.set('fin_queue', []);
     UI.testMsg = 'Desconectado. Vuelves al modo demo.';
     await Store.load(); render();
   },
-  async resetdemo() { LS.del('fin_demo'); LS.del('fin_demo_cartera'); await Store.load(); toast('Datos de ejemplo regenerados'); render(); },
+  async resetdemo() { LS.del('fin_demo'); LS.del('fin_demo_cartera'); LS.del('fin_demo_fijos'); await Store.load(); toast('Datos de ejemplo regenerados'); render(); },
   csv() {
     const H = ['fecha', 'perfil', 'tipo', 'importe', 'categoria', 'etiqueta', 'comun', 'reparto', 'nota'];
     const q = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
@@ -1362,6 +1595,7 @@ document.addEventListener('change', e => {
   const el = e.target;
   if (el.dataset.act === 'comun') { ACT.comun(null, el); return; }
   if (el.id === 'scanfile' && F && el.files && el.files[0]) { handleScan(el.files[0]); return; }
+  if (el.id === 'f-comun' && FF) { readFF(); renderFijo(); return; }
   if (el.id === 'fecha' && F) { if (/^\d{4}-\d{2}-\d{2}$/.test(el.value)) F.fecha = el.value; renderSheet(); return; }
   if (el.id === 'rep' && F) { F.reparto = Math.max(0, Math.min(100, Number(el.value) || 0)); return; }
   const path = el.dataset.cfg;
@@ -1454,6 +1688,25 @@ function seedCartera() {
     { id: 'dp4', perfil: 'maik', nombre: 'Plan de pensiones HNA', ticker: '', tipo: 'pension', unidades: 210, coste: 5600, plataforma: 'HNA', precio_manual: 28.9, precio_eur: null, actualizado: d },
     { id: 'dp5', perfil: 'maik', nombre: 'Cuenta ahorro', ticker: '', tipo: 'ahorro', unidades: 1, coste: 6000, plataforma: 'Openbank', precio_manual: 6000, precio_eur: null, actualizado: d },
     { id: 'dp6', perfil: 'consu', nombre: 'Hucha', ticker: '', tipo: 'ahorro', unidades: 1, coste: 2500, plataforma: 'CaixaBank', precio_manual: 2500, precio_eur: null, actualizado: d }
+  ];
+}
+
+function seedFijos() {
+  const g = curYM();
+  const f = (id, perfil, nombre, importe, categoria, frecuencia, mes, dia, comun) =>
+    ({ id, perfil, nombre, importe, categoria, frecuencia, mes, dia, comun: !!comun, reparto: 50, activo: true, generado: g });
+  return [
+    f('df1', 'maik', 'Alquiler', 900, 'vivienda', 'mensual', 1, 1, true),
+    f('df2', 'maik', 'Fibra', 45, 'suministros', 'mensual', 1, 11, true),
+    f('df3', 'maik', 'Gimnasio', 39.9, 'deporte', 'mensual', 1, 3),
+    f('df4', 'maik', 'Spotify', 13.99, 'suscripciones', 'mensual', 1, 10),
+    f('df5', 'maik', 'Seguro del coche', 385, 'transporte', 'anual', 3, 12),
+    f('df6', 'maik', 'Impuesto de circulación', 118, 'impuestos', 'anual', 4, 30),
+    f('df7', 'consu', 'Cuota de autónomos', 250, 'impuestos', 'mensual', 1, 28),
+    f('df8', 'consu', 'Netflix', 7.99, 'suscripciones', 'mensual', 1, 9),
+    f('df9', 'consu', 'IBI del piso', 420, 'impuestos', 'anual', 9, 20),
+    f('df10', 'consu', 'Seguro del hogar', 230, 'hogar', 'anual', 11, 15, true),
+    f('df11', 'consu', 'Comunidad del piso', 180, 'vivienda', 'trimestral', 1, 5)
   ];
 }
 
