@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<meta name="theme-color" content="#F3F3F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#F1E8E1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0F1015" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Finanzas personales y en pareja: gastos, gastos fijos, inversiones y facturas.">
 <link rel="manifest" href="manifest.webmanifest">
@@ -19,11 +19,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#F3F3F6; --card:#FFFFFF; --ink:#17181F; --muted:#5C5E6B; --line:#EEEEF2; --chip:#E6E6EC; --track:#F0F0F4;
-  --accent:#4B3BC9; --accent-btn:#4B3BC9; --accent-soft:#ECEBF8;
-  --good:#1B6E45; --good-soft:#E8F4EE;
-  --warn:#8A4B00; --warn-strong:#5E3300; --warn-soft:#FFF4E2; --warn-bar:#D98A1E;
-  --neutral-bar:#B9BAC6; --bad:#B42318; --shadow:0 1px 2px rgba(0,0,0,.08);
+  /* Claro: paleta "Mocha" (café con leche) */
+  --bg:#F1E8E1; --card:#FFFFFF; --ink:#33251F; --muted:#7D6A60; --line:#EEE3DB; --chip:#E8DAD0; --track:#F0E6DE;
+  --accent:#7E5443; --accent-btn:#8C5E4A; --accent-soft:#F1E3DA;
+  --good:#4E7A5A; --good-soft:#E5EFE5;
+  --warn:#9A5B12; --warn-strong:#6B3C06; --warn-soft:#FBEEDC; --warn-bar:#C99A6B;
+  --neutral-bar:#CDB9AB; --bad:#B0473A; --shadow:0 2px 6px rgba(70,40,25,.07);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark){
@@ -177,6 +178,17 @@ nav.tab .add{width:56px;height:56px;border-radius:18px;background:var(--accent-b
 .cat{border:0;background:var(--card);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:11.5px;font-weight:600;min-height:68px;padding:6px 4px;text-align:center;line-height:1.15}
 .cat.on{background:var(--accent-soft);outline:2px solid var(--accent);color:var(--ink)}
 .cat svg{color:var(--ink)} .cat.on svg{color:var(--accent)}
+.emo{display:inline-block;flex:none;line-height:0} .emo svg{width:100%;height:100%;display:block}
+.cats .cat{min-height:78px;font-size:12px} .cat.mas{background:var(--chip)}
+.catshade{position:absolute;inset:0;background:rgba(30,20,15,.32);z-index:30}
+.catpanel{position:absolute;left:0;right:0;bottom:0;max-height:78%;overflow-y:auto;background:var(--card);border-radius:24px 24px 0 0;z-index:31;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+.catpanel .cat{background:var(--bg)} .catpanel .cat.on{background:var(--accent-soft)}
+.catpanel .ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.scanrow{display:grid;grid-template-columns:1fr 1fr;gap:8px} .scanrow .scan{padding:8px 10px;gap:8px;min-height:0} .scanrow .scan .ic{width:36px;height:36px;border-radius:11px} .scanrow .scan b{font-size:13.5px} .scanrow .scan small{font-size:11.5px}
+.cbar.btnlike{display:block;width:100%;border:0;background:transparent;text-align:left;padding:0;color:inherit;font:inherit;cursor:pointer}
+.cbar .h .nm{display:flex;align-items:center;gap:8px}
+.syncops{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.syncops div{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:12px;background:var(--bg)}
 .etq{display:flex;gap:8px}
 .etq button{flex:1;border:1.5px solid var(--line);background:var(--card);border-radius:999px;font-weight:600;font-size:13px;min-height:42px}
 .etq button.on{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
@@ -371,6 +383,9 @@ const CATS_ING = [
   { id: 'alquiler', n: 'Alquiler', i: 'home' },
   { id: 'otros_ing', n: 'Otros ingresos', i: 'plus' }
 ];
+const EMOJI = {"super": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#9b9b9b\" d=\"M7.17 21.757L22.94 23l1.042-4h.536c1.372 0 2.494 1.34 2.494 2.885V22c0 1.608-1.203 3-2.634 3H3c-.547 0-1 .382-1 .956S2.447 27 2.994 27h21.425C26.943 27 29 24.756 29 22v-.115C29 19.192 26.993 17 24.518 17h-.015l.004-.012a.495.495 0 0 0 .393-.469v-.038a.47.47 0 0 0-.168-.359L27.37 6H5.2C3.44 6 2 7.432 2 9.253l.52 8.495c.15 2.517 2.52 3.84 4.65 4.009M21.616 16H20v-4h2.605zm1.236-5H20V8.007l1.95.002c.84 0 1.45.776 1.25 1.582zM19 8.006V11h-4.38V8zm-5.38-.007V11h-4.6V7.994zm-5.6-.006V11H4.111L4 9.193c0-.666.54-1.204 1.21-1.204zM4.173 12H8.02v4h-3.6zm.308 5H8.02v2.83l-.68-.053c-1.34-.11-2.74-.875-2.82-2.149zm4.539 2.91V17h4.6v3.272zm5.6.44V17H19v3.62q0 .039.006.076zm5.38.25V17h1.369l-.679 2.747a1.28 1.28 0 0 1-.69.853M14.62 12H19v4h-4.38zm-5.6 0h4.6v4h-4.6z\"/><path fill=\"#bebebe\" d=\"M22.804 23.97c-.562-.131-.912-.688-.774-1.225l4.884-18.977c.138-.537.721-.871 1.282-.74c.562.132.912.69.774 1.227L24.086 23.23c-.138.547-.71.871-1.282.74\"/><path fill=\"#0084ce\" d=\"M27 5h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1M5.5 30a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3m18 0a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3\"/></g></svg>", "vivienda": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#f3c07b\" fill-rule=\"evenodd\" d=\"M10 8.834V3.523A.53.53 0 0 0 9.467 3H6.543A.53.53 0 0 0 6 3.523v8.646l-1 .833v16h22v-15L16.07 3.772z\" clip-rule=\"evenodd\"/><path fill=\"#8c5543\" d=\"M15.92 27.003H8.08c-.04 0-.08-.04-.08-.08v-10.53c0-.75.61-1.36 1.36-1.36h5.29c.75 0 1.36.61 1.36 1.36v10.53c-.01.04-.05.08-.09.08\"/><path fill=\"#402a32\" d=\"M14.5 21.002a.5.5 0 1 0 0-1a.5.5 0 0 0 0 1\"/><path fill=\"#d3d3d3\" d=\"M15.96 28.002H8c-.55 0-1-.45-1-1s.45-1 1-1h7.96c.55 0 1 .45 1 1s-.45 1-1 1\"/><path fill=\"#00f397\" d=\"M30 29.002H2v-.09c0-1.06.85-1.91 1.91-1.91h24.18c1.05 0 1.91.85 1.91 1.91z\"/><path fill=\"#f8312f\" d=\"m16.88 2.353l12.76 12.57c.48.47.48 1.23 0 1.69c-.47.47-1.24.47-1.72 0l-11.9-11.72l-11.94 11.76c-.47.47-1.24.47-1.72 0s-.48-1.23 0-1.7l12.8-12.6c.47-.47 1.24-.47 1.72 0\"/><path fill=\"#83cbff\" d=\"M23.14 21.002h-4.28c-.48 0-.86-.38-.86-.86v-4.28c0-.47.38-.86.86-.86h4.28c.47 0 .86.38.86.86v4.28c0 .48-.38.86-.86.86\"/></g></svg>", "suministros": "<svg viewBox=\"0 0 32 32\"><path fill=\"#ff822d\" d=\"m17.831 3.306l-9.726 13.9c-.26.37-.045.794.395.794h4c.35 0 .5.14.5.5v10.763c0 .71.86 1.02 1.27.45l9.618-12.828c.27-.37.052-.885-.388-.885H20c-.5 0-1-.5-1-1V3.5c0-.5-.76-.774-1.169-.194\"/></svg>", "transporte": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#f8312f\" d=\"M24.64 10h-9.66c-1.06.04-2.04.61-2.63 1.49L12 12l-1.434 2.985L7.98 18h-3.1c-1.29 0-2.38.84-2.75 2l.266 1.5L2 23v1l14 1l14-1v-4.49c0-.51-.05-1.02-.14-1.51l-1.315-2.789s-.765-3.111-.785-3.171A3.41 3.41 0 0 0 24.64 10\"/><path fill=\"#9b9b9b\" d=\"M28.61 26H3.39C2.62 26 2 25.38 2 24.61V24h28v.61c0 .77-.62 1.39-1.39 1.39\"/><path fill=\"#26c9fc\" d=\"m12 12l-4.01 6h7.04c.53 0 .96-.43.96-.96v-4.08a.96.96 0 0 0-.96-.96zm11.01 6h-4.04a.96.96 0 0 1-.96-.96v-4.08c0-.53.43-.96.96-.96h4.04c.53 0 .96.43.96.96v4.08c0 .53-.43.96-.96.96m4.82-5.79l1.64 4.37c.17.46.3.94.38 1.42h-2.91a.96.96 0 0 1-.96-.96v-4c0-.57.47-1.04 1.04-1.04h.72s.07.15.09.21\"/><path fill=\"#e6e6e6\" d=\"M3.99 22v-1c0-.55-.45-1-1-1h-.85c-.1.29-.14.6-.14 1.27V23h.99c.55 0 1-.45 1-1\"/><path fill=\"#321b41\" d=\"M12.02 25.5a3.5 3.5 0 1 1-7 0a3.5 3.5 0 0 1 7 0m14.98 0a3.5 3.5 0 1 1-7 0a3.5 3.5 0 0 1 7 0\"/><path fill=\"#e6e6e6\" d=\"M10 25.5a1.5 1.5 0 1 1-3 0a1.5 1.5 0 0 1 3 0m15 0a1.5 1.5 0 1 1-3 0a1.5 1.5 0 0 1 3 0\"/><path fill=\"#ca0b4a\" d=\"M29.99 20h-.5c-.85 0-1.54.71-1.5 1.57c.04.81.74 1.43 1.55 1.43h.45z\"/><path fill=\"#321b41\" d=\"M11.13 19h.39c.27 0 .48-.22.48-.48v-2.04a.48.48 0 0 0-.48-.48h-.39c-.62 0-1.13.51-1.13 1.13v.74c0 .62.51 1.13 1.13 1.13\"/></g></svg>", "restaurantes": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#cdc4d6\" d=\"M16.5 28C22.851 28 28 22.851 28 16.5S22.851 5 16.5 5S5 10.149 5 16.5S10.149 28 16.5 28\"/><path fill=\"#e1d8ec\" d=\"M16.5 24.5a8 8 0 1 0 0-16a8 8 0 0 0 0 16\"/><path fill=\"#998ea4\" d=\"M6.82 6.31a.68.68 0 0 0-.68.68v2.69c0 .2-.16.35-.35.35c-.2 0-.35-.16-.35-.35V7.02c0-.37-.29-.7-.66-.71c-.39-.01-.71.3-.71.68v2.69c0 .2-.16.35-.35.35c-.2 0-.35-.16-.35-.35V7.02c0-.37-.29-.7-.66-.71c-.39-.01-.71.3-.71.68v4.58c0 .902.437 1.707 1.109 2.209c.601.339.601 1.891.601 1.891v10.02c0 .52.42.94.94.94h.23c.52 0 .94-.42.94-.94V15.67s0-1.491.601-1.891A2.76 2.76 0 0 0 7.53 11.57V6.99a.72.72 0 0 0-.71-.68m21.54 0c.9 0 1.63.73 1.63 1.63V25.7c0 .52-.42.94-.94.94h-.23c-.52 0-.94-.42-.94-.94v-8.617a3.15 3.15 0 0 1-1.85-2.883V8.65a2.32 2.32 0 0 1 2.33-2.34\"/></g></svg>", "delivery": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#433b6b\" d=\"M6.5 30a3.5 3.5 0 1 0 0-7a3.5 3.5 0 0 0 0 7m19 0a3.5 3.5 0 1 0 0-7a3.5 3.5 0 0 0 0 7\"/><path fill=\"#f3eef8\" d=\"M6.5 28a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3m19 0a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3\"/><path fill=\"#f92f60\" d=\"M12 11a2 2 0 1 0-4 0v13.517A2.483 2.483 0 0 0 10.483 27h9.752a.765.765 0 0 0 .765-.765V21h6a1 1 0 0 0 1-1v-1a3 3 0 0 0-3-3H14.5a.5.5 0 0 0-.5.5V18a2 2 0 0 0 2 2h.5a1.5 1.5 0 0 1 0 3h-3.833a.667.667 0 0 1-.667-.667z\"/><path fill=\"#636363\" d=\"M9 10a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2h-3a1 1 0 0 1-1-1\"/><path fill=\"#f9c23c\" d=\"M8 14h.5a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5H8z\"/><path fill=\"#ca0b4a\" d=\"M22.5 20a3.5 3.5 0 1 0 0 7H29a1 1 0 0 0 1-1v-2.586A3.414 3.414 0 0 0 26.586 20zm-16 1C4.015 21 2 23.056 2 25.541c0 .251.204.459.455.459h8.09a.46.46 0 0 0 .455-.459C11 23.056 8.985 21 6.5 21\"/><path fill=\"#8c5543\" d=\"M14 15.667c0-.92.746-1.667 1.667-1.667h5.666c.92 0 1.667.746 1.667 1.667c0 .184-.15.333-.333.333h-8.334a.333.333 0 0 1-.333-.333\"/></g></svg>", "cafes": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#d3d3d3\" d=\"M14.5 30C20.851 30 26 24.851 26 18.5S20.851 7 14.5 7S3 12.149 3 18.5S8.149 30 14.5 30\"/><path fill=\"#9b9b9b\" d=\"M14.42 27.5c-5.17 0-9.38-4.7-9.38-9.87H23.8c0 5.17-4.21 9.87-9.38 9.87\"/><path fill=\"#e6e6e6\" d=\"M21.4 12.38a9.35 9.35 0 0 0-6.98-3.13a9.37 9.37 0 0 0-6.99 3.13H5.04v5.25c0 5.17 4.21 9.38 9.38 9.38c4.378 0 8.068-3.019 9.095-7.083l1.06-1.04s-.788-.652-.779-.996q.004-.13.004-.261v-5.25z\"/><path fill=\"#f4f4f4\" d=\"M23.79 12.38a9.38 9.38 0 1 1-1.08-4.372Q22.865 8 23.02 8c3.3 0 5.98 2.68 5.98 5.98a5.984 5.984 0 0 1-5.488 5.96a9.4 9.4 0 0 0 .285-2.056A3.994 3.994 0 0 0 27 13.98c0-2.03-1.53-3.718-3.507-3.952c.194.752.297 1.54.297 2.352\"/><path fill=\"#7d4533\" d=\"M14.41 20.67a8.29 8.29 0 0 0 8.29-8.29c0-4.578-5.035-7.29-8.29-7.29c-2.786 0-8.29 2.712-8.29 7.29a8.29 8.29 0 0 0 8.29 8.29\"/><path fill=\"#9b9b9b\" d=\"M6.14 12.966c.301-3.1 3.889-6.876 8.27-6.876c4.38 0 7.967 3.827 8.27 6.88q.02-.293.02-.59a8.29 8.29 0 1 0-16.56.586\"/></g></svg>", "ropa": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#86d72f\" d=\"m29.696 12.33l-4.99-2.88c-.5-.29-1.07-.44-1.65-.44H8.936c-.317 0-.632.045-.934.133C6 9.73 4.09 11.295 2.296 12.33a.6.6 0 0 0-.22.81l2.79 4.83a.6.6 0 0 0 .81.22L8 16.848v12.398c0 .42.34.75.75.75h14.496c.42 0 .75-.34.75-.75v-12.39l2.3 1.334c.29.16.65.07.81-.22l2.79-4.83c.19-.28.09-.64-.2-.81\"/><path fill=\"#44911b\" d=\"M11.484 9.01v.116c0 2.432 2.028 4.41 4.522 4.41s4.523-1.978 4.523-4.41V9.01z\"/><path fill=\"#c3ef3c\" d=\"M24 16H8v3h16z\"/><path fill=\"#00d26a\" d=\"M12.008 9.01c0 2.198 1.794 3.98 3.992 3.98s4-1.782 4-3.98h1.008c0 2.75-2.258 4.98-5.008 4.98s-5.008-2.23-5.008-4.98z\"/></g></svg>", "ocio": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#f9c23c\" d=\"M19.93 5.03c0-.81-.57-1.48-1.32-1.65a.42.42 0 0 1-.29-.24c-.23-.67-.86-1.14-1.6-1.14a1.7 1.7 0 0 0-1.6 1.13c-.04.13-.15.21-.28.24c-.76.17-1.32.85-1.32 1.66s.57 1.48 1.32 1.65c.13.03.24.12.29.24c.23.66.86 1.13 1.6 1.13a1.7 1.7 0 0 0 1.6-1.13c.04-.13.16-.22.29-.24c.74-.17 1.31-.85 1.31-1.65\"/><path fill=\"#fcd53f\" d=\"M19.062 5.252A1.77 1.77 0 0 1 20.2 4.84c.77 0 1.43.49 1.67 1.18c.05.14.16.23.3.26c.8.18 1.39.88 1.39 1.73s-.59 1.55-1.39 1.73c-.14.03-.25.13-.3.26c-.24.69-.9 1.18-1.67 1.18a1.77 1.77 0 0 1-1.5-.828a1.7 1.7 0 0 1-.96.298c-.74 0-1.37-.47-1.6-1.13a.42.42 0 0 0-.29-.24a2 2 0 0 1-.27-.085a1.8 1.8 0 0 1-.94.545c-.14.03-.25.13-.3.26c-.24.69-.9 1.18-1.67 1.18S11.24 10.69 11 10a.38.38 0 0 0-.3-.26a1.77 1.77 0 0 1-1.38-1.73c0-.85.59-1.55 1.38-1.73c.14-.03.26-.12.3-.26c.25-.69.9-1.18 1.68-1.18c.77 0 1.43.49 1.67 1.18c.05.14.16.23.3.26q.208.046.392.137c.22-.213.494-.367.798-.437c.13-.02.25-.11.29-.24a1.7 1.7 0 0 1 2.932-.488\"/><path fill=\"#fff478\" d=\"M19.53 8.42c.654 0 1.23.354 1.535.884a1.77 1.77 0 0 1 1.445-.744c.77 0 1.43.49 1.67 1.18c.05.14.16.23.3.26c.8.18 1.39.88 1.39 1.73c0 .84-.59 1.55-1.39 1.73c-.14.03-.25.13-.3.26c-.24.69-.9 1.18-1.67 1.18c-.655 0-1.23-.354-1.535-.884a1.77 1.77 0 0 1-1.445.744a1.77 1.77 0 0 1-1.639-1.097c-.2.106-.424.175-.661.197c-.76.07-1.44-.34-1.75-.97a1.77 1.77 0 0 1-2.827.468q-.15.065-.313.102c-.14.03-.25.13-.3.26c-.24.69-.9 1.18-1.67 1.18s-1.43-.49-1.67-1.18a.4.4 0 0 0-.3-.26a1.771 1.771 0 0 1 0-3.46c.14-.03.25-.13.3-.26c.24-.69.9-1.18 1.67-1.18c.78 0 1.43.49 1.67 1.18c.05.14.16.23.3.26c.334.075.632.241.865.47q.067-.027.135-.05c.19-.06.34-.21.41-.4c.23-.72.89-1.23 1.68-1.23a1.77 1.77 0 0 1 1.691 1.233q.206-.11.439-.163c.14-.03.25-.13.3-.26c.24-.69.9-1.18 1.67-1.18\"/><path fill=\"#f8312f\" d=\"M13.74 14.13a2.45 2.45 0 0 1 2.45-2.55c1.39 0 2.5 1.16 2.45 2.55l3.75-.54c.09-1.05.96-1.86 2.02-1.86c1.24 0 2.19 1.11 1.99 2.34l-2.33 14.75c-.11.69-.71 1.2-1.41 1.2h-1.57l-1.407-4.216l-1.663 4.206h-3.66l-1.286-3.304l-1.744 3.314H9.76c-.7 0-1.3-.51-1.41-1.2L6.02 14.07c-.19-1.23.76-2.34 2-2.34c1.06 0 1.94.81 2.01 1.86z\"/><path fill=\"#f4f4f4\" d=\"M11.28 30.02L9.99 13.74c-.09-1.09.77-2.01 1.85-2.01c1 0 1.82.79 1.86 1.79l.66 16.5zm6.74 0l.65-16.5a1.863 1.863 0 1 1 3.72.22L21.1 30.02z\"/></g></svg>", "cuidado": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#ffc83d\" d=\"M2 21.213V30h16.67l6.028-6.03a3 3 0 0 0-4.236-4.248l1.408-1.408a3 3 0 0 0-4.243-4.243l-1.414 1.414a3 3 0 1 0-4.242-4.242z\"/><path fill=\"#d67d00\" d=\"M2 30h.5v-.094l15.481-15.481a2.5 2.5 0 0 1 3.535 0c.053.052.034.002.003-.08c-.046-.124-.12-.318-.019-.345v-.5c-1.375-1.158-2.931-1.077-4.226.218L2 28.99zm7.684 0h1.207l9.918-9.919a2.5 2.5 0 0 1 3.536 0a.5.5 0 1 0 .707-.707a3.5 3.5 0 0 0-4.95 0L9.83 29.647a.5.5 0 0 0-.146.353\"/><path fill=\"#533566\" d=\"M27.09 5.008a.5.5 0 0 1 .402.582l-.667 3.67c.28.178.493.437.601.74h-3.005c.2-.562.763-.972 1.434-.999l.653-3.59a.5.5 0 0 1 .581-.403\"/><path fill=\"#9f70b8\" d=\"M24.945 2.438A.5.5 0 0 1 25.441 2h3.993a.5.5 0 0 1 .496.562l-.32 2.562a1 1 0 0 1-.993.876h-3.55a.5.5 0 0 1-.497-.562zM24.42 10a1.4 1.4 0 0 0-.077.5v1.407c0 .252-.143.504-.28.688c-.106.143-.064.357.113.384c1.195.178 3.329-.781 3.329-2.525a1.4 1.4 0 0 0-.079-.454zm-12.45 1.243a2 2 0 1 0 2.83 2.827l2.121-2.121a3 3 0 0 0 0-4.243a1 1 0 0 0-1.414 0zm4.243 7.071a2 2 0 0 1 0-2.829l3.536-3.535a1 1 0 0 1 1.414 0a3 3 0 0 1 0 4.242l-2.121 2.122a2 2 0 0 1-2.829 0m4.243 1.414a2 2 0 0 0 2.828 2.828l2.122-2.12a3 3 0 0 0 0-4.244a1 1 0 0 0-1.415 0z\"/><path fill=\"#f3eef8\" d=\"M26.59 2.636c.202.05.324.254.274.455l-.5 2a.375.375 0 1 1-.728-.182l.5-2c.05-.2.254-.323.455-.273\"/></g></svg>", "suscripciones": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#636363\" d=\"M10.354 3.06a.5.5 0 1 1 .707-.706l3.889 3.889l-.707.707zm8.535-.707a.5.5 0 0 1 .707.708L15.707 6.95L15 6.243zM11 23.5L8 23l-1.535 5.728a1.07 1.07 0 0 0 2.019.695zm10 0l3-.5l1.535 5.728a1.07 1.07 0 0 1-2.018.695z\"/><path fill=\"#9b9b9b\" d=\"M3 9a3 3 0 0 1 3-3h20a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z\"/><circle cx=\"25.75\" cy=\"13.25\" r=\"1.25\" fill=\"#ca0b4a\"/><circle cx=\"25.75\" cy=\"9.25\" r=\"1.25\" fill=\"#636363\"/><path fill=\"#83cbff\" d=\"M6.5 11.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2z\"/><path fill=\"#321b41\" d=\"M21 10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM8 9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z\"/></g></svg>", "salud": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#fcd53f\" d=\"m21.415 21.405l-6.39 6.39a7.63 7.63 0 0 1-10.79 0a7.63 7.63 0 0 1 0-10.79l6.39-6.39l8.642 2.585z\"/><path fill=\"#f8312f\" d=\"m10.635 10.625l6.39-6.39a7.63 7.63 0 0 1 10.79 0a7.63 7.63 0 0 1 0 10.79l-6.39 6.39z\"/><path fill=\"#f4f4f4\" d=\"M26 12a2 2 0 1 0 0-4a2 2 0 0 0 0 4\"/></g></svg>", "deporte": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#ffc83d\" d=\"M20.513 29.969H9.093c-4.75 0-7.08-3.859-7.03-6.969c0-3.406 4.843-15.875 4.843-15.875c.813-2.031 1.515-3.695 3.907-3.656c1.843 0 5.39 1.5 5.39 4.5c0 1.625-1.14 2.11-1.14 2.11c0 .968-.797 1.89-1.641 1.89H9.688s3.137 6.298 3.406 6.797c.268.499.531 0 .531 0c1.063-3.235 4.625-5.772 7.781-5.772C25.895 12.993 30 17.015 30 20.768v-.001v.002c0 4.763-3.157 9.2-9.487 9.2m9.487-9.2v-.002z\"/><path fill=\"#d67d00\" d=\"m10.25 6.437l1.297 1.649h2.094c-.47-.64-2.116-1.874-3.391-1.649m4.826 3.635l-.014.006c0 .969-.796 1.89-1.64 1.89h-3.59l.939 2.174C7.962 13.908 7 10.992 7 10.992h.814l.033.016h5.31c.53 0 1.687-.477.859-2.008c.29 0 .898.439 1.06 1.072m-.425 8.63a1.48 1.48 0 0 0-.756-.628a7 7 0 0 0-.27.692s-.094.178-.227.215a.5.5 0 0 1 .399.24l2.963 4.882a.5.5 0 0 0 .855-.519zm-2.559-.008a1.5 1.5 0 0 1 .666-.586c.171.34.292.576.336.658c.075.14.15.201.22.217a.5.5 0 0 0-.37.235l-2.893 4.7a.5.5 0 0 1-.852-.524z\"/></g></svg>", "hogar": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#3f5fff\" d=\"M3 25a1 1 0 0 1 1-1h19a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z\"/><path fill=\"#1345b7\" d=\"M5 17a1 1 0 0 0-1 1v5.5a1 1 0 0 0 1 1h17a1 1 0 0 0 1-1V18a1 1 0 0 0-1-1h-7.5a1 1 0 0 0-1 1a1 1 0 0 0-1-1zM3 29l1-1l1 1v.75a.25.25 0 0 1-.25.25h-1.5a.25.25 0 0 1-.25-.25zm20-1l-1 1v.75c0 .138.112.25.25.25h1.5a.25.25 0 0 0 .25-.25V29z\"/><path fill=\"#5092ff\" d=\"M3.75 20A1.75 1.75 0 0 0 2 21.75V28a1 1 0 0 0 1 1h1.5a1 1 0 0 0 1-1v-6.25A1.75 1.75 0 0 0 3.75 20m19.5 0a1.75 1.75 0 0 0-1.75 1.75V28a1 1 0 0 0 1 1H24a1 1 0 0 0 1-1v-6.25A1.75 1.75 0 0 0 23.25 20\"/><path fill=\"#9b9b9b\" d=\"M21.44 2.846c.5-.873 1.464-1.346 3.06-1.346s2.56.473 3.06 1.346c.233.41.339.867.39 1.312c.05.439.05.9.05 1.327V28.5h-1v-23c0-.444 0-.852-.044-1.228c-.043-.375-.124-.684-.265-.93c-.251-.44-.787-.842-2.191-.842s-1.94.402-2.19.842c-.142.246-.223.555-.266.93C22 4.648 22 5.056 22 5.5v1h-1V5.485c0-.427 0-.888.05-1.327c.051-.445.157-.903.39-1.312\"/><path fill=\"#ffb02e\" d=\"M21.5 6A3.5 3.5 0 0 1 25 9.5v3a.5.5 0 0 1-.5.5h-6a.5.5 0 0 1-.5-.5v-3A3.5 3.5 0 0 1 21.5 6m4 24h4c.5 0 .25-.7.25-.7c-.303-1.04-1.113-1.8-2.25-1.8s-1.947.76-2.25 1.8c0 0-.25.7.25.7\"/></g></svg>", "trabajo": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#8c5543\" d=\"M2 15h28v13a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z\"/><path fill=\"#6d4534\" d=\"M11.1 9H4a2 2 0 0 0-2 2v4a4 4 0 0 0 4 4h20a4 4 0 0 0 4-4v-4a2 2 0 0 0-2-2h-7.1a5.002 5.002 0 0 0-9.8 0m2.07 0a3.001 3.001 0 0 1 5.66 0z\"/><path fill=\"#d3883e\" d=\"m13 19l3-1l3 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z\"/><path fill=\"#e19747\" d=\"M13 18a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1h-6z\"/></g></svg>", "impuestos": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#d3d3d3\" d=\"m25.05 3.105l-1.02-.94a.63.63 0 0 0-.85 0l-1.02.94c-.14.13-.37.13-.51 0l-1.02-.94a.63.63 0 0 0-.85 0l-1.02.94c-.14.13-.37.13-.51 0l-1.02-.94a.63.63 0 0 0-.85 0l-1.03.94c-.14.13-.37.13-.51 0l-1.02-.94a.63.63 0 0 0-.85 0l-1.02.94c-.14.13-.37.13-.51 0l-1.02-.95c-.16-.15-.42-.03-.42.19v27.65h14.61a2.39 2.39 0 0 0 2.39-2.39V2.345c0-.22-.26-.33-.42-.18l-1.03.95a.38.38 0 0 1-.5-.01\"/><path fill=\"#9b9b9b\" d=\"M12.25 8h12.5c.14 0 .25-.11.25-.25v-1.5c0-.14-.11-.25-.25-.25h-12.5c-.14 0-.25.11-.25.25v1.5c0 .14.11.25.25.25m.25 2a.5.5 0 0 0 0 1h8a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h8a.5.5 0 0 0 0-1zm-.5 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1h-8a.5.5 0 0 1-.5-.5m.5 2.5a.5.5 0 0 0 0 1h8a.5.5 0 0 0 0-1zm-.5 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1h-8a.5.5 0 0 1-.5-.5M22.5 10a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1zm-.5 3.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5m.5 2.5a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1zm-.5 3.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5m.5 2.5a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1zm-.5 5.495v-1.56c0-.52-.42-.94-.94-.94H6.94c-.52 0-.94.42-.94.94v1.56a2.5 2.5 0 0 0 2.5 2.5h16a2.5 2.5 0 0 1-2.5-2.5\"/></g></svg>", "inversion": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#e1d8ec\" d=\"M2 6a4 4 0 0 1 4-4h20a4 4 0 0 1 3.731 2.556l-.585 1.776l.854.846V26a4 4 0 0 1-4 4H6a4 4 0 0 1-3.888-3.056l.67-1.893l-.782-.71z\"/><path fill=\"#b4acbc\" d=\"M10 11v10H2v1h8v8h1v-8h10v8h1v-8h8v-1h-8V11h8v-1h-8V2h-1v8H11V2h-1v8H2v1zm1 0h10v10H11z\"/><path fill=\"#319fe7\" d=\"M2.12 26.976A4 4 0 0 1 2 26v-1.701l7.062-6.973a2.2 2.2 0 0 1 3.06-.03l2.15 2.04a.5.5 0 0 0 .698-.009L29.722 4.531c.18.455.278.95.278 1.469v1.187L16.132 20.902a2.2 2.2 0 0 1-3.052.04l-2.15-2.017a.5.5 0 0 0-.694.01z\"/></g></svg>", "viajes": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#9b9b9b\" d=\"m15 5.5l1.615-.512l.051-.052a1.14 1.14 0 0 0 .01-1.6a1.126 1.126 0 0 0-1.592-.011L14.022 4.38zm13.659 12.436l-.679.676L27 17.5l.442-1.415c.41-.169.9-.087 1.227.25a1.123 1.123 0 0 1-.01 1.601\"/><path fill=\"#cdc4d6\" d=\"m14.12 28.875l-1.348-5.554a26 26 0 0 0 4.825-3.61l3.428-3.254l3.443-1.551l1.943-3.563l2.295-2.18a4.163 4.163 0 0 0 .1-5.935a4.14 4.14 0 0 0-5.924.04L20.36 5.892l-4.1 1.727l-1.037 3.618l-2.96 3.08a26.2 26.2 0 0 0-3.646 4.813l-5.525-1.404a.9.9 0 0 0-.859.23c-.44.442-.2.993.24 1.454l9.95 10.087c.49.521 1.009.692 1.448.25a.9.9 0 0 0 .25-.872\"/><path fill=\"#00a6ed\" d=\"m27.793 5.77l-1.54-1.552a.73.73 0 0 0-1.032-.01a.713.713 0 0 0-.01 1.022l1.54 1.552a.73.73 0 0 0 1.032.01a.72.72 0 0 0 .01-1.022\"/><path fill=\"#0084ce\" d=\"m15.216 11.245l5.166-5.375L8.346 3.05c-.46-.11-.95-.04-1.37.19c-1.3.73-1.3 2.59-.01 3.32zm11.213.08l-5.42 5.147L25.46 24.7c.7 1.31 2.57 1.34 3.32.06c.24-.41.32-.89.22-1.36zM8.156 22.315a1.07 1.07 0 0 1 1.527.01c.43.421.42 1.111-.01 1.533L6.84 26.685a1.07 1.07 0 0 1-1.526-.01a1.08 1.08 0 0 1 .01-1.533z\"/></g></svg>", "regalos": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#fcd53f\" d=\"M24.888 30H7.112A2.093 2.093 0 0 1 5 27.914V15l10.877-3.06L27 15v12.914C27 29.06 26.06 30 24.888 30\"/><path fill=\"#f8312f\" d=\"M27 5.847c0-3.384-4.045-5.106-6.466-2.763L16 7.479l-4.533-4.395C9.045.73 5 2.463 5 5.847C5 7.04 5.957 8 7.142 8L16 10.17L24.858 8A2.157 2.157 0 0 0 27 5.847\"/><path fill=\"#ffb02e\" d=\"M27.662 8H4.337C3.6 8 3 8.6 3 9.342v4.316C3 14.4 3.6 15 4.338 15h23.324C28.4 15 29 14.4 29 13.658V9.342C29 8.6 28.4 8 27.662 8\"/><path fill=\"#ca0b4a\" d=\"M16.005 3C14.345 3 13 4.37 13 6.06V30h6V6.06C19.01 4.37 17.666 3 16.005 3\"/></g></svg>", "otros": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#f3c07b\" d=\"M15.35 2.143c.32-.19.71-.19 1.02 0l10.92 6.64c.26.16.42.45.42.75L15.86 17.5L4 9.632v-.1c0-.3.16-.59.42-.74z\"/><path fill=\"#ffce7c\" d=\"m15.856 16.246l11.36-6.9a.328.328 0 0 1 .496.282v12.34a1.73 1.73 0 0 1-.83 1.48l-10.64 6.46a.3.3 0 0 1-.087.03a.3.3 0 0 1-.083.011a.9.9 0 0 1-.682-.083h.006L13 19z\"/><path fill=\"#e19747\" d=\"M15.86 29.622v-13.37l-11.35-6.9a.331.331 0 0 0-.51.28v12.34c0 .61.32 1.17.83 1.48l10.57 6.42a.3.3 0 0 0 .46-.25\"/><path fill=\"#d3d3d3\" d=\"M14.5 26.782v-1.96c0-.23-.12-.44-.31-.56l-2.8-1.69c-.19-.11-.43.02-.43.24v1.96c0 .23.12.44.31.56l2.8 1.69c.19.11.43-.02.43-.24\"/><path fill=\"#8c5543\" d=\"M11.76 16.553v-4.56l-3.28-.22v3.16c0 .1.05.2.14.26l2.68 1.63c.2.11.46-.03.46-.27\"/><path fill=\"#a56953\" d=\"m20.34 4.563l-11.86 7.21l3.28 2l11.86-7.2z\"/></g></svg>", "nomina": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\" fill-rule=\"evenodd\" clip-rule=\"evenodd\"><path fill=\"#f3c07b\" d=\"M17.44 3.385c.33.38.89.45 1.3.16c.8-.57 1.84.29 1.43 1.17l-2.42 2.77h-3.87l-2.44-2.8c-.41-.89.63-1.75 1.43-1.18l.07.05c.41.29.97.21 1.29-.17l.87-1.04a.955.955 0 0 1 1.47 0zM4 21.225c0-6.54 5.3-11.84 11.84-11.84s11.84 5.3 11.83 11.84c0 4.83-3.92 8.75-8.75 8.75h-6.17c-4.83 0-8.75-3.92-8.75-8.75\"/><path fill=\"#8c5543\" d=\"M14.12 7.465h3.44c.61 0 1.11.5 1.11 1.11s-.5 1.11-1.11 1.11h-3.44c-.61 0-1.11-.5-1.11-1.11s.5-1.11 1.11-1.11m1.72 11.88h.07c1.5.04 2.7 1.26 2.7 2.76c0 1.28-.87 2.35-2.05 2.67v1.12c0 .4-.32.72-.72.72s-.72-.32-.72-.72v-1.12a2.77 2.77 0 0 1-2.05-2.67c0-.4.32-.72.72-.72s.72.32.72.72c0 .74.59 1.33 1.32 1.33s1.33-.6 1.33-1.33s-.6-1.33-1.33-1.33h-.07a2.765 2.765 0 0 1-2.69-2.76c0-1.28.87-2.35 2.05-2.67v-1.12c0-.4.32-.72.72-.72s.72.32.72.72v1.12c1.18.32 2.05 1.39 2.05 2.67c0 .4-.32.72-.72.72s-.72-.32-.72-.72c0-.73-.6-1.33-1.33-1.33s-1.33.6-1.33 1.33s.6 1.33 1.33 1.33\"/></g></svg>", "factura": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#b4acbc\" d=\"M4.5 2a1 1 0 0 0-1 1v22c0 2.341 1.997 5 4.5 5h17.5c1.973-.246 3.5-1.96 3.5-4a1 1 0 0 0-1-1h-2.5V3a1 1 0 0 0-1-1z\"/><path fill=\"#f3eef8\" d=\"M5 3a.5.5 0 0 0-.5.5v21A4.5 4.5 0 0 0 8.994 29c1.285-.606 2.345-1.707 2.506-3a1 1 0 0 1 1-1h12V3.5A.5.5 0 0 0 24 3z\"/><path fill=\"#998ea4\" d=\"M8.5 10a.5.5 0 0 0 0 1h12a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h12a.5.5 0 0 0 0-1zM8 16.5a.5.5 0 0 1 .5-.5h12a.5.5 0 0 1 0 1h-12a.5.5 0 0 1-.5-.5m.5 2.5a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1z\"/></g></svg>", "alquiler": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#7d4533\" d=\"M10 24H8v4h2z\"/><path fill=\"#00d26a\" d=\"M15.056 18.665c.336-.125.57-.28.641-.477c.123-.33.194-.693.194-1.076v-.632c0-1.687-1.333-3.053-2.982-3.085c0-1.873-1.496-3.395-3.338-3.395s-3.338 1.522-3.338 3.395h-.081c-1.669 0-3.033 1.377-3.033 3.085v.632c0 .631.194 1.221.51 1.718A3.32 3.32 0 0 0 2 21.698C2 23.52 3.455 25 5.246 25h8.508C15.544 25 17 23.52 17 21.698a3.28 3.28 0 0 0-1.944-3.033\"/><path fill=\"#f3c07b\" d=\"M9 28h18V15.497L18.065 7L13 11.283V7.416A.404.404 0 0 0 12.6 7h-2.19c-.23 0-.41.188-.41.416v6.404l-1 .846z\"/><path fill=\"#8c5543\" d=\"M17.953 28h-5.889c-.037 0-.064-.03-.064-.07v-8.808c0-.621.457-1.122 1.024-1.122h3.95c.567 0 1.024.501 1.024 1.122v8.808c.01.04-.018.07-.046.07\"/><path fill=\"#402a32\" d=\"M16.5 24a.5.5 0 1 0 0-1a.5.5 0 0 0 0 1\"/><path fill=\"#d3d3d3\" d=\"M18.197 29h-6.394c-.44 0-.803-.451-.803-1s.362-1 .803-1h6.394c.44 0 .803.451.803 1s-.362 1-.803 1\"/><path fill=\"#f8312f\" d=\"M29.16 16.595L18.69 6.285c-.39-.38-1.02-.38-1.41 0l-.01.01l-10.49 10.33a.97.97 0 0 0 0 1.39c.39.38 1.02.38 1.41 0l9.79-9.65l9.77 9.62c.39.38 1.02.38 1.41 0a.97.97 0 0 0 0-1.39\"/><path fill=\"#00f397\" d=\"M30 30H2c0-1.1.9-2 2-2h24a2 2 0 0 1 2 2\"/><path fill=\"#83cbff\" d=\"M24.284 23h-3.568a.72.72 0 0 1-.716-.716v-3.568a.72.72 0 0 1 .716-.716h3.568a.72.72 0 0 1 .716.716v3.568a.72.72 0 0 1-.716.716\"/><path fill=\"#00d26a\" d=\"M26.32 30a3.14 3.14 0 0 0 1.51-1.806c.11-.321.17-.662.17-1.013c0-.883-.36-1.686-.95-2.268A3.17 3.17 0 0 0 24.83 24c-1.25 0-2.34.742-2.86 1.806a.85.85 0 0 1-.53.451c-.76.241-1.32.924-1.42 1.736q-.015.03 0 .06c-.02.06-.02.13-.02.201c0 .733.38 1.365.95 1.736h5.37z\"/></g></svg>", "otros_ing": "<svg viewBox=\"0 0 32 32\"><g fill=\"none\"><path fill=\"#f9c23c\" d=\"M16 30c7.732 0 14-6.268 14-14S23.732 2 16 2S2 8.268 2 16s6.268 14 14 14\"/><path fill=\"#d3883e\" d=\"M27 16c0 6.075-4.925 11-11 11S5 22.075 5 16S9.925 5 16 5s11 4.925 11 11m-4.68 3.89a.54.54 0 0 0-.51-.37h.03v-7.76c.43-.28.51-.97-.01-1.28l-5.39-3.26a.73.73 0 0 0-.78 0l-5.4 3.26c-.52.31-.44 1-.02 1.28v7.77h-.11c-.24 0-.45.16-.51.39l-.35 1.25c-.1.34.16.68.51.68h12.45c.35-.01.61-.36.5-.71zM11.9 11.88v7.64h1.66v-7.64zm3.31 0v7.64h1.69v-7.64zm3.35 0v7.64h1.62v-7.64z\" opacity=\".53\"/></g></svg>", "mas": "<svg viewBox=\"0 0 32 32\"><path fill=\"#785dc8\" d=\"M19.05 5.06c0-1.68-1.37-3.06-3.06-3.06s-3.07 1.38-3.06 3.06v7.87H5.06C3.38 12.93 2 14.3 2 15.99c0 1.68 1.38 3.06 3.06 3.06h7.87v7.86c0 1.68 1.37 3.06 3.06 3.06c1.68 0 3.06-1.37 3.06-3.06v-7.86h7.86c1.68 0 3.06-1.37 3.06-3.06c0-1.68-1.37-3.06-3.06-3.06h-7.86z\"/></svg>"};
+// Icono de categoría: emoji a color (Fluent Emoji, licencia MIT) o, si no hay, el icono de línea.
+const catIcon = (id, size) => EMOJI[id] ? `<span class="emo" style="width:${size}px;height:${size}px" aria-hidden="true">${EMOJI[id]}</span>` : icon(CAT_BY[id] ? CAT_BY[id].i : 'dots', size);
 const CAT_BY = Object.fromEntries([...CATS, ...CATS_ING].map(c => [c.id, c]));
 const ETQ = { necesario: 'Necesario', prescindible: 'Prescindible', capricho: 'Capricho' };
 const TIPOS_ACTIVO = { accion: 'Acción', etf: 'ETF o fondo', cripto: 'Cripto', pension: 'Plan de pensiones', otro: 'Otro' };
@@ -385,6 +400,7 @@ const DEFAULT_CFG = {
   horas: { maik: 160, consu: 160 },
   variable: { maik: false, consu: false },
   modo: 'pareja',
+  tema: 'claro',
   api: '', token: ''
 };
 function loadCfg() {
@@ -401,6 +417,14 @@ const saveCfg = () => LS.set('fin_cfg', cfg);
 const nombre = p => cfg.nombres[p] || p;
 const otro = p => (p === 'maik' ? 'consu' : 'maik');
 const solo = () => cfg.modo === 'individual';
+// Apariencia: claro (Mocha), oscuro o según el móvil.
+function applyTheme() {
+  const t = cfg.tema === 'oscuro' ? 'dark' : cfg.tema === 'auto' ? null : 'light';
+  if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+  const dark = t === 'dark' || (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelectorAll('meta[name=theme-color]').forEach(m => m.setAttribute('content', dark ? '#0F1015' : '#F1E8E1'));
+}
+applyTheme();
 let serverConf = null;
 function applyServerConfig(c) {
   if (!c) return;
@@ -453,8 +477,9 @@ async function api(method, body, extra, timeoutMs) {
         signal: ctrl.signal
       });
     }
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error === 'token' ? 'Token incorrecto' : (data.error || 'Error del servidor'));
+    let data;
+    try { data = await res.json(); } catch (e) { throw new Error('La hoja no respondió bien (¿falta autorizar permisos en Apps Script?)'); }
+    if (!data.ok) { const er = new Error(data.error === 'token' ? 'Token incorrecto' : (data.error || 'Error del servidor')); er.server = data.error !== 'token'; throw er; }
     return data;
   } catch (e) {
     if (e.name === 'AbortError') throw new Error('Tiempo de espera agotado');
@@ -463,7 +488,7 @@ async function api(method, body, extra, timeoutMs) {
 }
 
 const Store = {
-  movs: [], cartera: [], fijos: [], inmuebles: [], contratos: [], queue: LS.get('fin_queue', []), status: 'demo', error: '', ver: 0,
+  movs: [], cartera: [], fijos: [], inmuebles: [], contratos: [], queue: LS.get('fin_queue', []), failed: LS.get('fin_failed', []), status: 'demo', error: '', ver: 0,
   flushing: false, needReload: false, ia: false, pricesAt: null,
   isDemo() { return !cfg.api; },
   touch() { this.ver++; memo.clear(); },
@@ -519,9 +544,20 @@ const Store = {
     this.flushing = true;
     try {
       while (this.queue.length) {
-        const batch = this.queue.slice();
-        await api('POST', { ops: batch });
+        const batch = this.queue.slice(0, 200);
+        let errs = [];
+        try {
+          const r = await api('POST', { ops: batch });
+          errs = (r.errors || []).map(e => ({ op: batch[e.i], error: e.error }));
+        } catch (e) {
+          if (!e.server) throw e;
+          // La hoja rechazó el lote (versión antigua del código): se envían uno a uno y se apartan los que fallen.
+          for (const op of batch) {
+            try { await api('POST', { ops: [op] }); } catch (e2) { if (!e2.server) throw e2; errs.push({ op, error: e2.message }); }
+          }
+        }
         if (batch.some(o => o.op === 'upsertPos')) this.needReload = true;
+        if (errs.length) { this.failed = this.failed.concat(errs.filter(x => x.op).map(x => ({ ...x, at: new Date().toISOString() }))); LS.set('fin_failed', this.failed); }
         this.queue = this.queue.slice(batch.length);
         LS.set('fin_queue', this.queue);
       }
@@ -691,7 +727,8 @@ function syncBadge() {
     err: ['err', 'Sin conexión']
   };
   const [cls, txt] = map[st] || map.err;
-  return `<button class="sync" data-act="sync" aria-label="Sincronizar: ${txt}"><span class="dot ${cls}"></span>${txt}</button>`;
+  const fail = Store.failed.length ? ` · ${Store.failed.length} con error` : '';
+  return `<button class="sync" data-act="syncinfo" aria-label="Estado de la sincronización: ${txt}${fail}"><span class="dot ${Store.failed.length && cls === 'ok' ? 'err' : cls}"></span>${txt}${fail}</button>`;
 }
 function profSeg() {
   if (solo()) return `<div style="font-size:20px;font-weight:800;letter-spacing:-.3px">Hola, ${esc(nombre('maik'))}</div>`;
@@ -726,6 +763,7 @@ function monthNav(label, act) {
 function movRow(m, p) {
   const cat = CAT_BY[m.categoria];
   let title, sub = [], amt, amtCls = '', tile = '', ic = cat ? cat.i : 'dots', extra = '';
+  const emo = cat && EMOJI[cat.id];
   if (m.tipo === 'liquidacion') {
     title = 'Liquidación'; ic = 'swap'; tile = 't-accent';
     sub.push(`${esc(nombre(m.perfil))} → ${esc(nombre(otro(m.perfil)))}`);
@@ -747,7 +785,7 @@ function movRow(m, p) {
   if (m.inmueble && UI.view !== 'inmueble') { const x = Store.inmuebles.find(i => i.id === m.inmueble); if (x) sub.push(esc(x.nombre)); }
   sub.push(relDate(m.fecha));
   return `<button class="row" data-act="edit" data-arg="${esc(m.id)}">
-    <div class="tile ${tile}">${icon(ic, 20)}</div>
+    <div class="tile ${tile}">${emo && m.tipo !== 'liquidacion' ? catIcon(cat.id, 24) : icon(ic, 20)}</div>
     <div class="mid"><div class="tt">${esc(title)}</div><div class="sub">${sub.join(' · ')}</div></div>
     <div class="rt"><div class="am num ${amtCls}">${amt}</div>${extra}</div></button>`;
 }
@@ -866,11 +904,11 @@ function vAnalisis() {
       ${s.inv ? `<div class="small muted">Además has invertido ${eur(s.inv, 0)}; cuenta como ahorro, no como gasto.</div>` : ''}
     </section>
     <section class="card">
-      <h2>Por categoría</h2>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Por categoría</h2><span class="small muted">Toca una para ver sus gastos</span></div>
       ${cats.length ? cats.map(([cid, a]) => {
         const w = (s.byCatP[cid] || 0) / a > 0.5;
-        return `<div class="cbar"><div class="h"><span>${esc(CAT_BY[cid] ? CAT_BY[cid].n : cid)}</span><span class="num">${eur(a, 0)}</span></div>
-          <div class="bar"><div style="width:${Math.max(2, a / maxC * 100)}%;background:${w ? 'var(--warn-bar)' : 'var(--accent-btn)'}"></div></div></div>`;
+        return `<button class="cbar btnlike" data-act="catmovs" data-arg="${esc(cid)}" aria-label="Ver movimientos de ${esc(CAT_BY[cid] ? CAT_BY[cid].n : cid)}"><div class="h"><span class="nm">${catIcon(cid, 20)}${esc(CAT_BY[cid] ? CAT_BY[cid].n : cid)}</span><span class="num">${eur(a, 0)} ${icon('chevR', 14)}</span></div>
+          <div class="bar"><div style="width:${Math.max(2, a / maxC * 100)}%;background:${w ? 'var(--warn-bar)' : 'var(--accent-btn)'}"></div></div></button>`;
       }).join('') : '<div class="empty">Sin gastos en este periodo.</div>'}
     </section>
     <section class="card">
@@ -920,8 +958,11 @@ function vComun() {
 }
 
 function vMovs() {
-  const p = cfg.perfil;
-  let items = Store.movs.filter(m => m.fecha && m.fecha.slice(0, 7) === UI.month && relevant(m, p));
+  const p = cfg.perfil, anio = UI.movsPer === 'anio';
+  const enPeriodo = m => anio ? m.fecha.slice(0, 4) === String(UI.year) : m.fecha.slice(0, 7) === UI.month;
+  let items = Store.movs.filter(m => m.fecha && enPeriodo(m) && relevant(m, p));
+  const fc = UI.filtroCat || '';
+  if (fc) items = items.filter(m => m.categoria === fc);
   const f = UI.filtro;
   if (f === 'gastos') items = items.filter(m => m.tipo === 'gasto');
   if (f === 'ingresos') items = items.filter(m => m.tipo === 'ingreso');
@@ -932,15 +973,21 @@ function vMovs() {
   const fl = [['todos', 'Todos'], ['gastos', 'Gastos'], ['ingresos', 'Ingresos'], ['presc', 'Prescindible']];
   return `${header()}
   <div class="stack" style="margin-top:12px">
-    <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-.6px">Movimientos</h1>
-    ${monthNav(monthLabel(UI.month), 'month')}
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-.6px">Movimientos</h1>
+      <div class="seg"><button class="${!anio ? 'on' : ''}" data-act="movsper" data-arg="mes">Mes</button><button class="${anio ? 'on' : ''}" data-act="movsper" data-arg="anio">Año</button></div>
+    </div>
+    ${anio ? monthNav(String(UI.year), 'year') : monthNav(monthLabel(UI.month), 'month')}
     <div class="seg filters">${fl.map(([k, l]) => `<button class="${f === k ? 'on' : ''}" data-act="filtro" data-arg="${k}">${l}</button>`).join('')}</div>
+    <div class="box"><div class="line"><label for="fcat" style="display:flex;align-items:center;gap:8px">${fc ? catIcon(fc, 22) : ''}Categoría</label>
+      <select id="fcat" class="input" style="width:auto;max-width:62%;padding:6px 10px"><option value="">Todas</option>${[...CATS, ...CATS_ING].map(c => `<option value="${c.id}" ${fc === c.id ? 'selected' : ''}>${esc(c.n)}</option>`).join('')}</select></div>
+      ${fc ? `<div class="line"><span class="small muted">${items.length} movimiento${items.length === 1 ? '' : 's'} · ${anio ? UI.year : esc(monthLabel(UI.month))}</span><b class="num">${eur(sum(items.map(m => m.tipo === 'ingreso' ? ingresoOf(m, p) : shareOf(m, p))), 2)}</b></div>` : ''}</div>
     ${groups.length ? groups.map(g => {
       const d = parseDate(g.d);
       const tot = sum(g.items.map(m => m.tipo === 'ingreso' ? ingresoOf(m, p) : -shareOf(m, p)));
       return `<div><div class="dayhead"><span>${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}</span><span class="num">${eurS(tot)}</span></div>
         <div class="list">${g.items.map(m => movRow(m, p)).join('')}</div></div>`;
-    }).join('') : '<div class="list"><div class="empty">Nada por aquí este mes.</div></div>'}
+    }).join('') : `<div class="list"><div class="empty">Nada por aquí ${anio ? 'este año' : 'este mes'}${fc ? ' en esta categoría' : ''}.</div></div>`}
   </div>`;
 }
 
@@ -958,6 +1005,11 @@ function vAjustes() {
   const nFact = Store.movs.filter(m => m.adjunto && m.perfil === cfg.perfil && !isPend(m) && m.fecha.slice(0, 7) >= desde && m.fecha.slice(0, 7) <= hasta).length;
   return `<header class="top"><div style="display:flex;align-items:center;gap:12px"><button class="icon-btn" data-act="go" data-arg="inicio" aria-label="Volver">${icon('back', 20)}</button><h1>Ajustes</h1></div></header>
   <div class="stack" style="margin-top:12px">
+    <section class="card">
+      <h2>Apariencia</h2>
+      <div class="seg" role="group" aria-label="Apariencia" style="align-self:flex-start">${[['claro', 'Claro'], ['oscuro', 'Oscuro'], ['auto', 'Como el móvil']].map(([k, l]) =>
+        `<button class="${(cfg.tema || 'claro') === k ? 'on' : ''}" data-act="tema" data-arg="${k}" aria-pressed="${(cfg.tema || 'claro') === k}">${l}</button>`).join('')}</div>
+    </section>
     <section class="card">
       <h2>Conexión con tu hoja</h2>
       ${cfg.api ? `<div class="status" style="color:var(--good)">Conectada${Store.ia ? ' · lectura de tickets activada' : ' · lectura de tickets sin configurar (falta la clave de Gemini en la hoja)'}</div>` : ''}
@@ -998,7 +1050,7 @@ function vAjustes() {
       <h2>Instalar en el móvil</h2>
       <p class="note"><b>iPhone:</b> abre esta página en Safari → <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>.<br><b>Android:</b> abre en Chrome → menú ⋮ → <b>Añadir a pantalla de inicio</b>.<br>Si al abrirla desde el icono te pide el enlace, vuelve a pegarlo aquí arriba.</p>
     </section>
-    <p class="note" style="text-align:center">Finanzas · v0.5</p>
+    <p class="note" style="text-align:center">Finanzas · v0.6</p>
   </div>`;
 }
 
@@ -1025,7 +1077,7 @@ function vPendientes() {
       const dup = posibleDuplicado(m);
       return `<div class="pend">
         <button class="row" style="border:0;padding:0" data-act="edit" data-arg="${esc(m.id)}">
-          <div class="tile ${m.tipo === 'ingreso' ? 't-good' : 't-warn'}">${icon(cat ? cat.i : 'dots', 20)}</div>
+          <div class="tile ${m.tipo === 'ingreso' ? 't-good' : 't-warn'}">${cat ? catIcon(cat.id, 24) : icon('dots', 20)}</div>
           <div class="mid"><div class="tt">${esc(m.nota || (cat ? cat.n : 'Movimiento'))}</div>
             <div class="sub">${String(m.id).startsWith('fx-') ? 'Gasto fijo · ' : ''}${m.adjunto ? 'Factura · ' : ''}${cat ? esc(cat.n) : '<b>Sin categoría</b>'}${m.etiqueta ? ' · ' + ETQ[m.etiqueta] : ''}${m.comun ? ' · común' : ''} · ${relDate(m.fecha)}</div></div>
           <div class="rt"><div class="am num ${m.tipo === 'ingreso' ? 'good' : ''}">${m.tipo === 'ingreso' ? '+' : '−'}${eur(m.importe)}</div>${dup ? '<span class="badge">¿Repetido?</span>' : ''}</div>
@@ -1369,7 +1421,7 @@ function fijoRow(f, p, ym) {
   const est = ym ? fijoEstado(f, ym) : null;
   const when = f.frecuencia === 'mensual' ? `día ${f.dia}` : `${f.dia} ${MESES_C[f.mes - 1].toLowerCase()}${f.frecuencia !== 'anual' ? ' y cada ' + freqK(f) + ' meses' : ''}`;
   const tile = d ? `<div class="daytile"><b>${parseDate(d).getDate()}</b><small>${MESES_C[parseDate(d).getMonth()]}</small></div>`
-    : `<div class="tile ${f.frecuencia === 'mensual' ? 't-accent' : 't-warn'}">${icon(CAT_BY[f.categoria] ? CAT_BY[f.categoria].i : 'receipt', 20)}</div>`;
+    : `<div class="tile ${f.frecuencia === 'mensual' ? 't-accent' : 't-warn'}">${CAT_BY[f.categoria] ? catIcon(f.categoria, 24) : icon('receipt', 20)}</div>`;
   return `<button class="row" data-act="editfijo" data-arg="${esc(f.id)}">${tile}
     <div class="mid"><div class="tt">${esc(f.nombre)}</div><div class="sub">${FREQ[f.frecuencia].n} · ${when}${f.comun ? ' · común' : ''}${f.activo === false ? ' · <b>pausado</b>' : ''}</div></div>
     <div class="rt"><div class="am num">${eur(shareFijo(f, p))}</div>${est === 'pagado' ? '<span class="chip2 ok">pagado</span>' : est === 'revisar' ? '<span class="chip2 rv">por revisar</span>' : (f.comun ? `<div class="sub">de ${eur(f.importe, 0)}</div>` : '')}</div></button>`;
@@ -1549,11 +1601,10 @@ function renderSheet() {
       <p class="note">Las liquidaciones se crean desde la pestaña Común. Si fue un error, puedes eliminarla.</p>`;
   } else {
     body = `
-      ${!F.editing ? `<label class="scan"><input type="file" id="scanfile" accept="image/*" aria-label="Escanear ticket o captura del banco"><span class="ic">${icon('camera', 22)}</span><span><b>Escanear ticket o captura del banco</b><small>Se leen solos y quedan pendientes de revisar</small></span></label>
-      <label class="scan"><input type="file" id="scanfact" accept="image/*,application/pdf" aria-label="Subir factura"><span class="ic">${icon('receipt', 22)}</span><span><b>Subir factura (foto o PDF)</b><small>Se guarda en tu Drive para el asesor</small></span></label>` : ''}
+      ${!F.editing ? `<div class="scanrow"><label class="scan"><input type="file" id="scanfile" accept="image/*" aria-label="Escanear ticket o captura del banco"><span class="ic">${icon('camera', 20)}</span><span><b>Escanear ticket</b><small>o captura del banco</small></span></label>
+      <label class="scan"><input type="file" id="scanfact" accept="image/*,application/pdf" aria-label="Subir factura"><span class="ic">${icon('receipt', 20)}</span><span><b>Subir factura</b><small>para el asesor</small></span></label></div>` : ''}
       ${F.adjunto ? facturaBox(F) : ''}
-      <div class="cats" role="group" aria-label="Categoría">${F.order.map(c =>
-        `<button class="cat ${F.categoria === c.id ? 'on' : ''}" data-act="cat" data-arg="${c.id}" aria-pressed="${F.categoria === c.id}">${icon(c.i, 22)}<span>${esc(c.n)}</span></button>`).join('')}</div>
+      <div class="cats" role="group" aria-label="Categoría">${catsTop().map(catBtn).join('')}${F.order.length > 8 ? `<button class="cat mas" data-act="mascats" aria-expanded="${!!F.allCats}">${catIcon('mas', 30)}<span>Más</span></button>` : ''}</div>
       ${g && !inv ? `<div class="etq" role="group" aria-label="Etiqueta">${Object.entries(ETQ).map(([k, l]) =>
         `<button class="${F.etiqueta === k ? 'on' : ''} ${k !== 'necesario' ? 'w' : ''}" data-act="etq" data-arg="${k}" aria-pressed="${F.etiqueta === k}">${l}</button>`).join('')}</div>
       <div class="box" ${solo() ? 'hidden' : ''}>
@@ -1578,8 +1629,23 @@ function renderSheet() {
     ${F.tipo === 'liquidacion' ? '' : `<div class="keypad" role="group" aria-label="Teclado numérico">${['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'].map(k =>
       `<button class="key" data-act="key" data-arg="${k}" ${k === '⌫' ? 'aria-label="Borrar"' : ''}>${k}</button>`).join('')}</div>`}
     ${F.tipo === 'liquidacion' ? '' : `<button class="save" data-act="save" ${canSave() ? '' : 'disabled'}>${F.estado === 'pendiente' ? 'Aceptar' : F.editing ? 'Guardar cambios' : 'Guardar'}</button>`}
+    ${F.allCats ? catPanel() : ''}
   </div>`;
   const sc = root.querySelector('.sh-scroll'); if (sc) sc.scrollTop = st;
+}
+// Las 7 categorías más usadas (la elegida siempre visible) y el resto en el panel "Más".
+function catsTop() {
+  if (F.order.length <= 8) return F.order;
+  const top = F.order.slice(0, 7);
+  if (F.categoria && !top.some(c => c.id === F.categoria) && CAT_BY[F.categoria]) top[6] = CAT_BY[F.categoria];
+  return top;
+}
+const catBtn = c => `<button class="cat ${F.categoria === c.id ? 'on' : ''}" data-act="cat" data-arg="${c.id}" aria-pressed="${F.categoria === c.id}">${catIcon(c.id, 30)}<span>${esc(c.n)}</span></button>`;
+function catPanel() {
+  const top = catsTop().map(c => c.id), rest = F.order.filter(c => !top.includes(c.id));
+  return `<div class="catshade" data-act="mascats"></div><div class="catpanel" role="dialog" aria-label="Todas las categorías">
+    <div class="ph"><h2 style="font-size:17px">Todas las categorías</h2><button class="icon-btn" data-act="mascats" aria-label="Cerrar">${icon('x', 18)}</button></div>
+    <div class="cats">${rest.map(catBtn).join('')}</div></div>`;
 }
 function pressKey(k) {
   let a = F.amt;
@@ -1773,6 +1839,44 @@ function savePos() {
     : () => { Store.commit({ op: 'deletePos', id: pos.id }); render(); });
 }
 
+/* ================= Estado de la sincronización ================= */
+function opTxt(op) {
+  if (!op) return 'Cambio';
+  const m = op.mov, k = op.op;
+  if (m) return `${m.tipo === 'ingreso' ? 'Ingreso' : m.tipo === 'liquidacion' ? 'Liquidación' : 'Gasto'} ${eur(m.importe)} · ${esc(m.nota || (CAT_BY[m.categoria] ? CAT_BY[m.categoria].n : ''))} · ${esc(m.fecha || '')}`;
+  if (k === 'delete') return 'Borrar un movimiento';
+  if (/Pos$/.test(k)) return (k[0] === 'd' ? 'Borrar inversión' : 'Inversión ' + esc((op.pos && op.pos.nombre) || ''));
+  if (/Fijo$/.test(k)) return (k[0] === 'd' ? 'Borrar gasto fijo' : 'Gasto fijo ' + esc((op.fijo && op.fijo.nombre) || ''));
+  if (/Inm$/.test(k)) return (k[0] === 'd' ? 'Borrar inmueble' : 'Inmueble ' + esc((op.inm && op.inm.nombre) || ''));
+  if (/Con$/.test(k)) return (k[0] === 'd' ? 'Borrar contrato' : 'Contrato ' + esc((op.con && op.con.inquilino) || ''));
+  return esc(k);
+}
+function openSync() {
+  UI.syncOpen = true; UI.confirmDiscard = false; renderSync();
+  document.body.style.overflow = 'hidden';
+}
+function renderSync() {
+  const q = Store.queue, fl = Store.failed;
+  const estado = Store.isDemo() ? 'Modo demo: los datos solo están en este móvil.'
+    : q.length ? `${q.length} cambio${q.length > 1 ? 's' : ''} guardado${q.length > 1 ? 's' : ''} en el móvil, sin enviar todavía a la hoja.`
+    : Store.status === 'err' ? 'No se pudo conectar con la hoja.' : 'Todo está guardado en tu hoja.';
+  document.getElementById('sheet-root').innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="Sincronización">
+    <div class="sh-top"><button class="icon-btn" data-act="closesync" aria-label="Cerrar">${icon('x', 20)}</button><div class="label">Sincronización</div><span style="width:44px"></span></div>
+    <div class="sh-scroll">
+      <section class="card"><h2>${esc(estado)}</h2>
+        ${Store.error ? `<div class="small" style="color:var(--bad)"><b>Último error:</b> ${esc(Store.error)}</div>
+          <p class="help">"Load failed" o "Failed to fetch" suelen ser falta de conexión o que en Apps Script falta ejecutar <b>setup</b> y aceptar los permisos tras actualizar el código.</p>` : ''}
+        ${Store.isDemo() ? '' : `<button class="btn" data-act="syncnow" ${UI.syncing ? 'disabled' : ''}>${UI.syncing ? 'Enviando…' : 'Reintentar ahora'}</button>`}
+      </section>
+      ${q.length ? `<section class="card"><h2>Sin enviar (${q.length})</h2><div class="syncops">${q.slice(0, 30).map(op => `<div><span>${opTxt(op)}</span></div>`).join('')}${q.length > 30 ? `<div><span class="muted">y ${q.length - 30} más…</span></div>` : ''}</div>
+        ${UI.confirmDiscard ? `<p class="help" style="color:var(--bad)">Se borrarán del móvil y no llegarán a la hoja. ¿Seguro?</p><div class="grid2"><button class="btn sec2" data-act="discardno">Cancelar</button><button class="btn danger" data-act="discardyes">Sí, descartar</button></div>`
+          : '<button class="btn sec2" data-act="discardq">Descartar los cambios sin enviar</button>'}</section>` : ''}
+      ${fl.length ? `<section class="card"><h2>No se pudieron guardar (${fl.length})</h2><p class="help">La hoja los rechazó y se apartaron para no bloquear el resto.</p>
+        <div class="syncops">${fl.slice(-30).map(x => `<div><span>${opTxt(x.op)}</span><span class="small" style="color:var(--bad)">${esc(x.error)}</span></div>`).join('')}</div>
+        <div class="grid2"><button class="btn sec2" data-act="retryfailed">Volver a intentar</button><button class="btn sec2" data-act="clearfailed">Olvidarlos</button></div></section>` : ''}
+    </div></div>`;
+}
+
 /* ================= Toast ================= */
 let toastT = null;
 function toast(msg, undo) {
@@ -1803,8 +1907,9 @@ const ACT = {
     F.order = F.editing ? (t === 'ingreso' ? CATS_ING : CATS) : usageOrder(F.perfil, t);
     renderSheet();
   },
+  mascats() { F.allCats = !F.allCats; renderSheet(); },
   cat(id) {
-    F.categoria = id;
+    F.categoria = id; F.allCats = false;
     const c = CAT_BY[id];
     if (F.tipo === 'gasto') {
       if (!F.etTouched) F.etiqueta = c.e || '';
@@ -1851,6 +1956,17 @@ const ACT = {
     toast('Eliminado', () => { Store.commit({ op: 'upsertPos', pos: orig }); render(); });
   },
   fijomes(m) { UI.fijoMes = m; render(); },
+  tema(k) { cfg.tema = k; saveCfg(); applyTheme(); render(); },
+  catmovs(cid) { UI.filtroCat = cid; UI.filtro = 'todos'; UI.movsPer = UI.anal === 'anio' ? 'anio' : 'mes'; UI.view = 'movs'; render(); window.scrollTo(0, 0); },
+  movsper(k) { UI.movsPer = k === 'anio' ? 'anio' : 'mes'; if (UI.movsPer === 'anio') UI.year = Number(UI.month.slice(0, 4)); render(); },
+  syncinfo() { openSync(); },
+  closesync() { UI.syncOpen = false; closeSheet(); render(); },
+  async syncnow() { UI.syncing = true; renderSync(); await Store.load(); UI.syncing = false; render(); if (UI.syncOpen) renderSync(); },
+  discardq() { UI.confirmDiscard = true; renderSync(); },
+  discardno() { UI.confirmDiscard = false; renderSync(); },
+  async discardyes() { Store.queue = []; LS.set('fin_queue', []); UI.confirmDiscard = false; await Store.load(); render(); renderSync(); toast('Cambios sin enviar descartados'); },
+  async retryfailed() { Store.queue = Store.queue.concat(Store.failed.map(x => x.op)); LS.set('fin_queue', Store.queue); Store.failed = []; LS.set('fin_failed', []); UI.syncing = true; renderSync(); await Store.load(); UI.syncing = false; render(); renderSync(); },
+  clearfailed() { Store.failed = []; LS.set('fin_failed', []); render(); renderSync(); },
   verinm(id) { UI.view = 'inmueble'; UI.inm = id; UI.inmYear = null; render(); window.scrollTo(0, 0); },
   inmyear(d) { UI.inmYear = (UI.inmYear || new Date().getFullYear()) + Number(d); render(); },
   addinm() { openInm(null); },
@@ -1980,6 +2096,7 @@ document.addEventListener('change', e => {
   if (el.id === 'f-comun' && FF) { readFF(); renderFijo(); return; }
   if (el.id === 'fecha' && F) { if (/^\d{4}-\d{2}-\d{2}$/.test(el.value)) F.fecha = el.value; renderSheet(); return; }
   if (el.id === 'inm' && F) { F.inmueble = el.value; return; }
+  if (el.id === 'fcat') { UI.filtroCat = el.value; render(); return; }
   if (el.id === 'rep' && F) { F.reparto = Math.max(0, Math.min(100, Number(el.value) || 0)); return; }
   const path = el.dataset.cfg;
   if (path) {
